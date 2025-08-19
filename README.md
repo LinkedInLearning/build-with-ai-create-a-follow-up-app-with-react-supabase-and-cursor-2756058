@@ -1,36 +1,132 @@
-# Build with AI: Create a Follow-Up App with React, Supabase, and Cursor
-This is the repository for the LinkedIn Learning course `Build with AI: Create a Follow-Up App with React, Supabase, and Cursor`. The full course is available from [LinkedIn Learning][lil-course-url].
+# Followup App
 
-![course-name-alt-text][lil-thumbnail-url] 
+A React application with Tailwind CSS and shadcn/ui for modern styling.
 
-_See the readme file in the main branch for updated instructions and information._
-## Instructions
-This repository has branches for each of the videos in the course. You can use the branch pop up menu in github to switch to a specific branch and take a look at the course at that stage, or you can add `/tree/BRANCH_NAME` to the URL to go to the branch you want to access.
+## Features
 
-## Branches
-The branches are structured to correspond to the videos in the course. The naming convention is `CHAPTER#_MOVIE#`. As an example, the branch named `02_03` corresponds to the second chapter and the third video in that chapter. 
-Some branches will have a beginning and an end state. These are marked with the letters `b` for "beginning" and `e` for "end". The `b` branch contains the code as it is at the beginning of the movie. The `e` branch contains the code as it is at the end of the movie. The `main` branch holds the final state of the code when in the course.
+- ⚡️ Vite for fast development
+- ⚛️ React 19 with TypeScript
+- 🎨 Tailwind CSS for utility-first styling
+- 🧩 shadcn/ui components for beautiful UI
+- 🌙 Dark mode support (CSS variables ready)
+- 📱 Responsive design
 
-When switching from one exercise files branch to the next after making changes to the files, you may get a message like this:
+## Getting Started
 
-    error: Your local changes to the following files would be overwritten by checkout:        [files]
-    Please commit your changes or stash them before you switch branches.
-    Aborting
+### Prerequisites
 
-To resolve this issue:
-	
-    Add changes to git using this command: git add .
-	Commit changes using this command: git commit -m "some message"
+- Node.js (version 20.19.0 or higher recommended)
+- npm or yarn
 
-## Installing
-1. To use these exercise files, you must have the following installed:
-	- [list of requirements for course]
-2. Clone this repository into your local machine using the terminal (Mac), CMD (Windows), or a GUI tool like SourceTree.
-3. [Course-specific instructions]
+### Installation
 
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-[0]: # (Replace these placeholder URLs with actual course URLs)
+### Development
 
-[lil-course-url]: https://www.linkedin.com/learning/
-[lil-thumbnail-url]: https://media.licdn.com/dms/image/v2/D4E0DAQG0eDHsyOSqTA/learning-public-crop_675_1200/B4EZVdqqdwHUAY-/0/1741033220778?e=2147483647&v=beta&t=FxUDo6FA8W8CiFROwqfZKL_mzQhYx9loYLfjN-LNjgA
+Start the development server:
 
+```bash
+npm run dev
+```
+
+The app will be available at `http://localhost:5173`
+
+### Building
+
+Build for production:
+
+```bash
+npm run build
+```
+
+## Styling
+
+### Tailwind CSS
+
+This project uses Tailwind CSS for styling. The configuration is in `tailwind.config.js` and includes:
+
+- Custom color palette with CSS variables
+- Dark mode support
+- Responsive breakpoints
+- Animation utilities
+
+### shadcn/ui Components
+
+shadcn/ui components are located in `src/components/ui/`. To add new components:
+
+1. Copy the component code from [shadcn/ui](https://ui.shadcn.com/)
+2. Place it in `src/components/ui/`
+3. Import and use in your components
+
+### Available Components
+
+- **Button** (`src/components/ui/button.tsx`) - Various button variants and sizes
+
+### Adding New Components
+
+1. Visit [shadcn/ui](https://ui.shadcn.com/)
+2. Select the component you want
+3. Copy the component code
+4. Install any required dependencies
+5. Place the component in `src/components/ui/`
+
+## Project Structure
+
+```
+src/
+├── components/
+│   └── ui/           # shadcn/ui components
+├── lib/
+│   └── utils.ts      # Utility functions
+├── App.tsx           # Main app component
+├── index.css         # Global styles with Tailwind
+└── main.tsx          # App entry point
+```
+
+## Customization
+
+### Colors
+
+Colors are defined as CSS variables in `src/index.css`. You can customize the theme by modifying these variables.
+
+### Adding Custom Styles
+
+Add custom styles in `src/index.css` using Tailwind's `@layer` directive:
+
+```css
+@layer components {
+  .my-custom-class {
+    @apply bg-blue-500 text-white;
+  }
+}
+```
+
+## Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+
+## Dependencies
+
+### Core
+
+- React 19
+- TypeScript
+- Vite
+
+### Styling
+
+- Tailwind CSS
+- shadcn/ui utilities (class-variance-authority, clsx, tailwind-merge)
+- Lucide React (icons)
+
+### UI Components
+
+- Radix UI (for shadcn/ui components)
