@@ -11,8 +11,13 @@ export const supabase =
         from: () => ({
           insert: () =>
             Promise.resolve({ error: new Error("Supabase not configured") }),
-          select: () =>
-            Promise.resolve({ error: new Error("Supabase not configured") }),
+          select: () => ({
+            order: () =>
+              Promise.resolve({
+                data: [],
+                error: new Error("Supabase not configured"),
+              }),
+          }),
         }),
       };
 

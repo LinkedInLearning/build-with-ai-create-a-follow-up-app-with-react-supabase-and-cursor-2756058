@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { LeadForm } from "./LeadForm";
 import { LeadsTable } from "./LeadsTable";
 import { Toaster } from "@/components/ui/toaster";
