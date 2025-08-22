@@ -19,6 +19,7 @@ import { LoginPageWrapper } from "@/components/pages/LoginPage";
 import { SignUpPage } from "@/components/SignUpPage";
 import { LeadsTable } from "@/components/LeadsTable";
 import { LeadForm } from "@/components/LeadForm";
+import { LandingPage } from "@/components/LandingPage";
 
 function App() {
   return (
@@ -74,11 +75,14 @@ function App() {
           <Route path="settings" element={<ManagerSettings />} />
         </Route>
 
+        {/* Public landing page */}
+        <Route path="/" element={<LandingPage />} />
+
         {/* Public lead form */}
-        <Route path="/" element={<LeadForm />} />
+        <Route path="/lead-form" element={<LeadForm />} />
 
         {/* Catch all route */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

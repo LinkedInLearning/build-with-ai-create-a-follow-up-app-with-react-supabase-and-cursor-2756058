@@ -23,17 +23,13 @@ export const SubAdminDashboard: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleSignOut = async () => {
-    console.log("Sign out button clicked");
     try {
-      console.log("Attempting to sign out...");
       const { error } = await supabase.auth.signOut();
-      console.log("Sign out result:", { error });
 
       if (error) {
         console.error("Sign out error:", error);
         alert("Sign out failed: " + error.message);
       } else {
-        console.log("Sign out successful, redirecting to login");
         // Force redirect to login page
         window.location.href = "/login";
       }

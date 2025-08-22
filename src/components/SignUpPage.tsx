@@ -55,31 +55,19 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSignUp }) => {
     }
 
     try {
-      console.log("Attempting to sign up with:", { email, password: "***" });
-
       // Sign up functionality
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
       });
 
-      console.log("Sign up response:", { data, error });
-
       if (error) {
         throw error;
       }
 
       if (data.user) {
-        console.log("User signed up:", data.user);
-
         try {
           // Manually create user record in the users table
-          console.log("Creating user record in database...");
-          console.log("User data to insert:", {
-            user_id: data.user.id,
-            email: data.user.email,
-            role_id: null,
-          });
 
           // First, get the default role (sub_admin) to assign to new users
           const { data: defaultRole, error: roleError } = await supabase
@@ -102,11 +90,6 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSignUp }) => {
             })
             .select()
             .single();
-
-          console.log("User record creation result:", {
-            userRecord,
-            userError,
-          });
 
           if (userError) {
             console.error("Error creating user record:", userError);
@@ -136,7 +119,6 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSignUp }) => {
               });
             }
           } else {
-            console.log("User record created successfully:", userRecord);
             toast({
               variant: "success",
               title: "Account Created Successfully!",
@@ -174,7 +156,6 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSignUp }) => {
           navigate("/login");
         }
       } else {
-        console.log("No user data returned from sign up");
         toast({
           variant: "destructive",
           title: "Authentication Error",

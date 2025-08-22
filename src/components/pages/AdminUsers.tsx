@@ -48,8 +48,6 @@ export const AdminUsers: React.FC = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      console.log("AdminUsers: Fetching users and roles...");
-
       // Fetch users
       const { data: usersData, error: usersError } = await supabase.from(
         "users"
@@ -64,8 +62,6 @@ export const AdminUsers: React.FC = () => {
           )
         `);
 
-      console.log("AdminUsers: Users query result:", { usersData, usersError });
-
       if (usersError) throw usersError;
 
       const formattedUsers =
@@ -78,15 +74,12 @@ export const AdminUsers: React.FC = () => {
           role_name: user.roles?.name || "No Role",
         })) || [];
 
-      console.log("AdminUsers: Formatted users:", formattedUsers);
       setUsers(formattedUsers);
 
       // Fetch roles
       const { data: rolesData, error: rolesError } = await supabase
         .from("roles")
         .select("id, name");
-
-      console.log("AdminUsers: Roles query result:", { rolesData, rolesError });
 
       if (rolesError) throw rolesError;
       setRoles(rolesData || []);
@@ -109,8 +102,6 @@ export const AdminUsers: React.FC = () => {
   const onAssignRole = async (data: AssignRoleForm) => {
     setIsUpdating(true);
     try {
-      console.log("Assigning role:", data);
-
       const { error } = await supabase
         .from("users")
         .update({ role_id: data.roleId })

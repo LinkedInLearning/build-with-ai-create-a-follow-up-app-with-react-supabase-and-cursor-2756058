@@ -78,7 +78,6 @@ export const LeadsTable: React.FC = () => {
 
         const userRole = (userData?.roles as any)?.name;
         setUserRole(userRole);
-        console.log("User role:", userRole);
 
         // If super admin, fetch sub-admins for assignment
         if (userRole === "super_admin") {

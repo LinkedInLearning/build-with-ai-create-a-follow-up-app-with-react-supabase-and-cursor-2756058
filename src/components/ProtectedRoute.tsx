@@ -19,32 +19,19 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   useEffect(() => {
     // Add a timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
-      console.log("ProtectedRoute: Timeout reached, setting loading to false");
       setLoading(false);
     }, 5000); // 5 second timeout
 
     // Check for existing session
     const checkSession = async () => {
       try {
-        console.log("ProtectedRoute: Checking session...");
         const {
           data: { session },
         } = await supabase.auth.getSession();
 
-        console.log("ProtectedRoute: Session result:", { session });
-
         if (session?.user) {
-          console.log(
-            "ProtectedRoute: User found in session:",
-            session.user.email
-          );
-
           try {
             // Get user role from users and roles tables
-            console.log(
-              "ProtectedRoute: Fetching user data for ID:",
-              session.user.id
-            );
 
             const { data: userData, error: userError } = await supabase
               .from("users")
@@ -61,10 +48,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
               .eq("user_id", session.user.id)
               .maybeSingle();
 
-            console.log("ProtectedRoute: User data result:", {
-              userData,
-              userError,
-            });
+
 
             if (userError) {
               console.error(
@@ -78,16 +62,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
                 role: "super_admin", // Fallback role
               });
             } else if (!userData) {
-              console.log(
-                "ProtectedRoute: No user data found, using fallback role"
-              );
               setUser({
                 id: session.user.id,
                 email: session.user.email || "",
                 role: "super_admin", // Fallback role
               });
             } else {
-              console.log("ProtectedRoute: User data found:", userData);
               setUser({
                 id: session.user.id,
                 email: session.user.email || "",
@@ -104,12 +84,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
             });
           }
         } else {
-          console.log("ProtectedRoute: No session found");
+          // No session found
         }
       } catch (error) {
         console.error("ProtectedRoute: Error checking session:", error);
       } finally {
-        console.log("ProtectedRoute: Setting loading to false");
         setLoading(false);
         clearTimeout(timeoutId); // Clear the timeout
       }
@@ -121,11 +100,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log(
-        "ProtectedRoute: Auth state change:",
-        event,
-        session?.user?.email
-      );
 
       if (event === "SIGNED_IN" && session?.user) {
         try {
@@ -173,7 +147,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
           });
         }
       } else if (event === "SIGNED_OUT") {
-        console.log("ProtectedRoute: User signed out");
         setUser(null);
       }
     });

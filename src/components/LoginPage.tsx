@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react";
 
 interface User {
   id: string;
@@ -15,6 +16,7 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -26,23 +28,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      console.log("Attempting to sign in with:", { email, password: "***" });
-
       // Sign in functionality
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      console.log("Sign in response:", { data, error });
-
       if (error) {
         throw error;
       }
 
       if (data.user) {
-        console.log("User authenticated:", data.user);
-
         // Get user role from users and roles tables
         const { data: userData, error: userError } = await supabase
           .from("users")
@@ -58,9 +54,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           )
           .eq("user_id", data.user.id)
           .maybeSingle(); // Use maybeSingle() instead of single() to handle missing records
-
-        console.log("User data from database:", { userData, userError });
-        console.log("User data structure:", JSON.stringify(userData, null, 2));
 
         if (userError) {
           console.error("Error fetching user data:", userError);
@@ -90,7 +83,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         }
 
         const userRole = userData?.roles?.name;
-        console.log("User role:", userRole);
 
         if (!userRole) {
           console.error("No role found for user");
@@ -115,7 +107,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           description: "You have been successfully signed in.",
         });
       } else {
-        console.log("No user data returned from sign in");
         toast({
           variant: "destructive",
           title: "Authentication Error",
@@ -170,6 +161,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center">
+          <button
+            onClick={() => navigate("/")}
+            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-500 mb-4"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Homepage
+          </button>
           <h2 className="text-3xl font-bold text-gray-900">Sign In</h2>
           <p className="mt-2 text-sm text-gray-600">Sign in to your account</p>
           <div className="mt-4 p-4 bg-yellow-50 rounded-lg">

@@ -31,17 +31,13 @@ export const AdminDashboard: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleSignOut = async () => {
-    console.log("Sign out button clicked");
     try {
-      console.log("Attempting to sign out...");
       const { error } = await supabase.auth.signOut();
-      console.log("Sign out result:", { error });
 
       if (error) {
         console.error("Sign out error:", error);
         alert("Sign out failed: " + error.message);
       } else {
-        console.log("Sign out successful, redirecting to login");
         navigate("/login");
       }
     } catch (error) {
@@ -112,10 +108,7 @@ export const AdminDashboard: React.FC = () => {
 
         <SidebarFooter className="border-t border-gray-200 pt-4">
           <button
-            onClick={() => {
-              console.log("Button clicked!");
-              handleSignOut();
-            }}
+            onClick={handleSignOut}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors duration-200"
           >
             <LogOut className="h-5 w-5" />
