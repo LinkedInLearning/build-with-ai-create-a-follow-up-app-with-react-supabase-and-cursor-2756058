@@ -1,0 +1,162 @@
+import React, { useState } from "react";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  LogOut,
+  Users,
+  BarChart3,
+  Settings,
+  Home,
+  ChevronDown,
+  Mail,
+} from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarHeaderDescription,
+  SidebarHeaderTitle,
+  SidebarNav,
+  SidebarNavItem,
+  SidebarNavLink,
+  SidebarToggle,
+} from "@/components/ui/sidebar";
+
+export const AdminDashboard: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const handleSignOut = async () => {
+    console.log("Sign out button clicked");
+    try {
+      console.log("Attempting to sign out...");
+      const { error } = await supabase.auth.signOut();
+      console.log("Sign out result:", { error });
+
+      if (error) {
+        console.error("Sign out error:", error);
+        alert("Sign out failed: " + error.message);
+      } else {
+        console.log("Sign out successful, redirecting to login");
+        navigate("/login");
+      }
+    } catch (error) {
+      console.error("Sign out error:", error);
+      alert("Sign out failed: " + (error as Error).message);
+    }
+  };
+
+  const navigation = [
+    { name: "Overview", href: "/admin", icon: Home },
+    { name: "Users", href: "/admin/users", icon: Users },
+    { name: "Leads", href: "/admin/leads", icon: Mail },
+    { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+    { name: "Settings", href: "/admin/settings", icon: Settings },
+  ];
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar */}
+      <Sidebar
+        variant={isCollapsed ? "sm" : "default"}
+        className="border-r border-gray-200 bg-white shadow-sm"
+      >
+        <SidebarHeader className="border-b border-gray-200 pb-4">
+          <SidebarHeaderTitle className="text-lg font-bold text-gray-900">
+            Follow-up App
+          </SidebarHeaderTitle>
+        </SidebarHeader>
+
+        <SidebarContent className="py-4">
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">
+              Navigation
+            </SidebarGroupLabel>
+            <SidebarNav>
+              {navigation.map((item) => {
+                const isActive = location.pathname === item.href;
+                return (
+                  <SidebarNavItem key={item.name}>
+                    <SidebarNavLink
+                      asChild
+                      className={`transition-colors duration-200 ${
+                        isActive
+                          ? "bg-blue-50 text-blue-700 border-r-2 border-blue-600"
+                          : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                      }`}
+                    >
+                      <Link
+                        to={item.href}
+                        className="flex items-center gap-3 px-3 py-2.5"
+                      >
+                        <item.icon
+                          className={`h-5 w-5 ${
+                            isActive ? "text-blue-600" : "text-gray-500"
+                          }`}
+                        />
+                        {!isCollapsed && (
+                          <span className="font-medium">{item.name}</span>
+                        )}
+                      </Link>
+                    </SidebarNavLink>
+                  </SidebarNavItem>
+                );
+              })}
+            </SidebarNav>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter className="border-t border-gray-200 pt-4">
+          <button
+            onClick={() => {
+              console.log("Button clicked!");
+              handleSignOut();
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors duration-200"
+          >
+            <LogOut className="h-5 w-5" />
+            {!isCollapsed && "Sign Out"}
+          </button>
+        </SidebarFooter>
+      </Sidebar>
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <SidebarToggle
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="lg:hidden"
+              />
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  Admin Dashboard
+                </h1>
+                <p className="text-sm text-gray-600">
+                  Super Admin Control Panel
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full">
+                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                <span className="text-sm font-medium">Super Admin</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-auto p-6">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+};

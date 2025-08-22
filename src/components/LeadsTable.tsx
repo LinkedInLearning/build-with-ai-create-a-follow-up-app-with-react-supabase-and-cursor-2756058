@@ -8,6 +8,8 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  User,
+  UserCheck,
 } from "lucide-react";
 
 type SortField =
@@ -34,6 +36,8 @@ export const LeadsTable: React.FC = () => {
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [userRole, setUserRole] = useState<string>("");
+  const [subAdmins, setSubAdmins] = useState<any[]>([]);
   const rowsPerPage = 10;
 
   // Fetch leads from Supabase
@@ -43,10 +47,71 @@ export const LeadsTable: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        const { data, error } = await supabase
-          .from("leads")
-          .select("*")
-          .order("created_at", { ascending: false });
+        // Get current user session
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.user) {
+          setError("User not authenticated");
+          return;
+        }
+
+        // Get user role
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select(
+            `
+            role_id,
+            roles (
+              name
+            )
+          `
+          )
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+
+        if (userError) {
+          console.error("Error fetching user role:", userError);
+          setError("Failed to fetch user role");
+          return;
+        }
+
+        const userRole = (userData?.roles as any)?.name;
+        setUserRole(userRole);
+        console.log("User role:", userRole);
+
+        // If super admin, fetch sub-admins for assignment
+        if (userRole === "super_admin") {
+          const { data: subAdminData, error: subAdminError } = await supabase
+            .from("users")
+            .select(
+              `
+              id,
+              email,
+              roles (
+                name
+              )
+            `
+            )
+            .eq("roles.name", "sub_admin");
+
+          if (!subAdminError && subAdminData) {
+            setSubAdmins(subAdminData);
+          }
+        }
+
+        let query = supabase.from("leads").select("*");
+
+        // Filter leads based on user role
+        if (userRole === "sub_admin") {
+          // Sub-admin can only see leads assigned to them
+          query = query.eq("assigned_to", session.user.id);
+        }
+        // Super admin can see all leads (no filter needed)
+
+        const { data, error } = await query.order("created_at", {
+          ascending: false,
+        });
 
         if (error) {
           if (error.message === "Supabase not configured") {
@@ -69,6 +134,28 @@ export const LeadsTable: React.FC = () => {
 
     fetchLeads();
   }, []);
+
+  // Function to assign lead to sub-admin
+  const assignLead = async (leadId: string, subAdminId: string) => {
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .update({ assigned_to: subAdminId })
+        .eq("id", leadId);
+
+      if (error) {
+        console.error("Error assigning lead:", error);
+        alert("Failed to assign lead");
+        return;
+      }
+
+      // Refresh the leads list
+      window.location.reload();
+    } catch (error) {
+      console.error("Error assigning lead:", error);
+      alert("Failed to assign lead");
+    }
+  };
 
   // Filter and sort leads based on search term and sort configuration
   const filteredAndSortedLeads = React.useMemo(() => {
@@ -319,6 +406,11 @@ export const LeadsTable: React.FC = () => {
                   {getSortIcon("created_at")}
                 </div>
               </th>
+              {userRole === "super_admin" && (
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Assignment
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -360,6 +452,34 @@ export const LeadsTable: React.FC = () => {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {formatDate(lead.created_at)}
                 </td>
+                {userRole === "super_admin" && (
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {lead.assigned_to ? (
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="h-4 w-4 text-green-500" />
+                        <span className="text-green-700">Assigned</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-gray-400" />
+                        <select
+                          onChange={(e) => assignLead(lead.id, e.target.value)}
+                          className="text-sm border border-gray-300 rounded px-2 py-1"
+                          defaultValue=""
+                        >
+                          <option value="" disabled>
+                            Assign to...
+                          </option>
+                          {subAdmins.map((admin) => (
+                            <option key={admin.id} value={admin.id}>
+                              {admin.email}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
