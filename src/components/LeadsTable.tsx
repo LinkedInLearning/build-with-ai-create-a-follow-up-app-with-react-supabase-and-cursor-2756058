@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, logAuditEvent } from "@/lib/supabase";
 import type { Lead, FollowUpInsert } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -191,7 +191,7 @@ export const LeadsTable: React.FC = () => {
         lead_id: leadId,
         sent_at: new Date().toISOString(),
         status: "pending",
-        template: "Initial follow-up for newly assigned lead"
+        template: "Initial follow-up for newly assigned lead",
       };
 
       const { error: followUpError } = await supabase
@@ -210,10 +210,21 @@ export const LeadsTable: React.FC = () => {
         )
       );
 
+      // Log audit event for lead assignment
+      const assignedSubAdmin = subAdmins.find(
+        (admin) => admin.id === subAdminId
+      );
+      await logAuditEvent("update", "leads", leadId, {
+        action: "lead_assignment",
+        assigned_to: assignedSubAdmin?.email || subAdminId,
+        previous_assignment: null,
+      });
+
       // Show success message
       toast({
         title: "Success",
-        description: "Lead assigned successfully! Follow-up scheduled for tomorrow.",
+        description:
+          "Lead assigned successfully! Follow-up scheduled for tomorrow.",
       });
     } catch (error) {
       console.error("Error assigning lead:", error);

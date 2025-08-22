@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { supabase } from "@/lib/supabase";
+import { supabase, logAuditEvent } from "@/lib/supabase";
 import type { LeadInsert } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
@@ -61,7 +61,7 @@ export const LeadForm: React.FC = () => {
         user_agent: navigator.userAgent,
       };
 
-      const { error } = await supabase.from("leads").insert([finalData]);
+      const { data: insertedLead, error } = await supabase.from("leads").insert([finalData]).select();
 
       if (error) {
         if (error.message === "Supabase not configured") {
@@ -75,6 +75,20 @@ export const LeadForm: React.FC = () => {
           return;
         }
         throw error;
+      }
+
+      // Log audit event for lead creation
+      if (insertedLead && insertedLead[0]) {
+        await logAuditEvent(
+          "create",
+          "leads",
+          insertedLead[0].id,
+          {
+            lead_name: finalData.name,
+            lead_email: finalData.email,
+            source: finalData.source
+          }
+        );
       }
 
       // Show success toast

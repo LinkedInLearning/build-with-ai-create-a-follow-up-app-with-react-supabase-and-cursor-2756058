@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { supabase, logAuditEvent } from "./supabase";
 
 export interface User {
   id: string;
@@ -120,5 +120,37 @@ export const getCurrentUser = async (): Promise<User | null> => {
   } catch (error) {
     console.error("Error getting current user:", error);
     return null;
+  }
+};
+
+// Log login event
+export const logLoginEvent = async () => {
+  try {
+    const user = await getCurrentUser();
+    if (user) {
+      await logAuditEvent("login", "auth", undefined, {
+        user_email: user.email,
+        user_role: user.role,
+        login_time: new Date().toISOString(),
+      });
+    }
+  } catch (error) {
+    console.error("Error logging login event:", error);
+  }
+};
+
+// Log logout event
+export const logLogoutEvent = async () => {
+  try {
+    const user = await getCurrentUser();
+    if (user) {
+      await logAuditEvent("logout", "auth", undefined, {
+        user_email: user.email,
+        user_role: user.role,
+        logout_time: new Date().toISOString(),
+      });
+    }
+  } catch (error) {
+    console.error("Error logging logout event:", error);
   }
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { logLoginEvent } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react";
@@ -100,6 +101,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           email: data.user.email || "",
           role: userRole,
         });
+
+        // Log login event
+        await logLoginEvent();
 
         toast({
           variant: "success",

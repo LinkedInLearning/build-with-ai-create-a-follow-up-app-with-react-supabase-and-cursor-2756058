@@ -8,8 +8,10 @@ import {
   Home,
   ChevronDown,
   Mail,
+  Activity,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { logLogoutEvent } from "@/lib/auth";
 import {
   Sidebar,
   SidebarContent,
@@ -32,6 +34,9 @@ export const AdminDashboard: React.FC = () => {
 
   const handleSignOut = async () => {
     try {
+      // Log logout event before signing out
+      await logLogoutEvent();
+      
       const { error } = await supabase.auth.signOut();
 
       if (error) {
@@ -51,6 +56,7 @@ export const AdminDashboard: React.FC = () => {
     { name: "Users", href: "/admin/users", icon: Users },
     { name: "Leads", href: "/admin/leads", icon: Mail },
     { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+    { name: "Audit Logs", href: "/admin/audit-logs", icon: Activity },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];
 

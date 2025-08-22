@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { LogOut, Users, BarChart3, Settings, Home, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { logLogoutEvent } from "@/lib/auth";
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +25,9 @@ export const SubAdminDashboard: React.FC = () => {
 
   const handleSignOut = async () => {
     try {
+      // Log logout event before signing out
+      await logLogoutEvent();
+
       const { error } = await supabase.auth.signOut();
 
       if (error) {

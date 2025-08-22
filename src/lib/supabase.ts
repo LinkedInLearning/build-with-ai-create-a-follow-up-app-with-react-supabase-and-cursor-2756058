@@ -34,6 +34,72 @@ export interface FollowUp {
 
 export type FollowUpInsert = Omit<FollowUp, "id">;
 
+export interface AuditLog {
+  id: string;
+  event_time: string;
+  user_id?: string;
+  role: string;
+  action: string;
+  table_name: string;
+  lead_id?: string;
+  ip_address?: string;
+  user_agent?: string;
+  additional_data?: Record<string, any>;
+  created_at: string;
+}
+
+export type AuditLogInsert = Omit<AuditLog, "id" | "event_time" | "created_at">;
+
+// Utility function to log audit events
+export const logAuditEvent = async (
+  action: string,
+  tableName: string,
+  leadId?: string,
+  additionalData?: Record<string, any>
+) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Get user details and role
+    const { data: userData } = await supabase
+      .from('users')
+      .select(`
+        id,
+        roles!inner(name)
+      `)
+      .eq('user_id', user.id)
+      .single();
+
+    if (!userData) return;
+
+    const auditData: AuditLogInsert = {
+      user_id: userData.id,
+      role: userData.roles.name,
+      action,
+      table_name: tableName,
+      lead_id: leadId,
+      additional_data: additionalData,
+    };
+
+    // Call the database function to log the audit event
+    const { error } = await supabase.rpc('log_audit_event', {
+      p_user_id: userData.id,
+      p_role: userData.roles.name,
+      p_action: action,
+      p_table_name: tableName,
+      p_lead_id: leadId,
+      p_additional_data: additionalData
+    });
+
+    if (error) {
+      console.error('Error logging audit event:', error);
+    }
+  } catch (error) {
+    console.error('Error in logAuditEvent:', error);
+  }
+};
+
 // Utility function to create follow-ups for existing leads
 export const createFollowUpsForExistingLeads = async (userId: string) => {
   try {

@@ -10,6 +10,7 @@ import { SubAdminDashboard } from "@/components/dashboards/ManagerDashboard";
 import { AdminOverview } from "@/components/pages/AdminOverview";
 import { AdminUsers } from "@/components/pages/AdminUsers";
 import { AdminAnalytics } from "@/components/pages/AdminAnalytics";
+import { AdminAuditLogs } from "@/components/pages/AdminAuditLogs";
 import { AdminSettings } from "@/components/pages/AdminSettings";
 import { ManagerOverview } from "@/components/pages/ManagerOverview";
 import { ManagerFollowups } from "@/components/pages/ManagerFollowups";
@@ -56,6 +57,7 @@ function App() {
           <Route path="users" element={<AdminUsers />} />
           <Route path="leads" element={<LeadsTable />} />
           <Route path="analytics" element={<AdminAnalytics />} />
+          <Route path="audit-logs" element={<AdminAuditLogs />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
 

@@ -46,6 +46,21 @@ CREATE TABLE IF NOT EXISTS followups (
   status TEXT DEFAULT 'pending'
 );
 
+-- Create audit_logs table for super admin monitoring
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  event_time TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  role TEXT NOT NULL,
+  action TEXT NOT NULL,
+  table_name TEXT NOT NULL,
+  lead_id UUID REFERENCES leads(id) ON DELETE SET NULL,
+  ip_address INET,
+  user_agent TEXT,
+  additional_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 
 -- =====================================================
 -- 2. INSERT DEFAULT DATA
@@ -65,6 +80,7 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE followups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
 
 -- =====================================================
@@ -77,6 +93,11 @@ DROP POLICY IF EXISTS "authenticated_view_roles" ON roles;
 DROP POLICY IF EXISTS "authenticated_access_users" ON users;
 DROP POLICY IF EXISTS "authenticated_access_leads" ON leads;
 DROP POLICY IF EXISTS "authenticated_access_followups" ON followups;
+DROP POLICY IF EXISTS "super_admin_audit_logs_access" ON audit_logs;
+DROP POLICY IF EXISTS "super_admin_audit_logs_select" ON audit_logs;
+DROP POLICY IF EXISTS "audit_logs_insert_system" ON audit_logs;
+DROP POLICY IF EXISTS "audit_logs_deny_delete" ON audit_logs;
+DROP POLICY IF EXISTS "audit_logs_deny_update" ON audit_logs;
 
 
 -- Users table policies
@@ -98,10 +119,77 @@ CREATE POLICY "authenticated_access_leads" ON leads
 CREATE POLICY "authenticated_access_followups" ON followups
   FOR ALL USING (auth.role() = 'authenticated');
 
+-- Audit logs table policies - only super admin can view, no one can delete
+CREATE POLICY "super_admin_audit_logs_select" ON audit_logs
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM users u
+      JOIN roles r ON u.role_id = r.id
+      WHERE u.user_id = auth.uid() AND r.name = 'super_admin'
+    )
+  );
+
+-- Allow insert for audit logging function (system use only)
+CREATE POLICY "audit_logs_insert_system" ON audit_logs
+  FOR INSERT WITH CHECK (true);
+
+-- Explicitly deny DELETE operations for all users
+CREATE POLICY "audit_logs_deny_delete" ON audit_logs
+  FOR DELETE USING (false);
+
+-- Explicitly deny UPDATE operations for all users (except system functions)
+CREATE POLICY "audit_logs_deny_update" ON audit_logs
+  FOR UPDATE USING (false);
+
 
 
 -- =====================================================
--- 5. CREATE USER MANAGEMENT FUNCTION
+-- 5. CREATE FUNCTIONS
+-- =====================================================
+
+-- Function to log audit events
+-- This function uses SECURITY DEFINER to bypass RLS for audit logging
+-- Only system functions should call this, not direct user queries
+CREATE OR REPLACE FUNCTION log_audit_event(
+  p_user_id UUID,
+  p_role TEXT,
+  p_action TEXT,
+  p_table_name TEXT,
+  p_lead_id UUID DEFAULT NULL,
+  p_ip_address INET DEFAULT NULL,
+  p_user_agent TEXT DEFAULT NULL,
+  p_additional_data JSONB DEFAULT NULL
+)
+RETURNS UUID AS $$
+DECLARE
+  audit_id UUID;
+BEGIN
+  INSERT INTO audit_logs (
+    user_id,
+    role,
+    action,
+    table_name,
+    lead_id,
+    ip_address,
+    user_agent,
+    additional_data
+  ) VALUES (
+    p_user_id,
+    p_role,
+    p_action,
+    p_table_name,
+    p_lead_id,
+    p_ip_address,
+    p_user_agent,
+    p_additional_data
+  ) RETURNING id INTO audit_id;
+  
+  RETURN audit_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =====================================================
+-- 6. CREATE USER MANAGEMENT FUNCTION
 -- =====================================================
 
 -- Drop existing function if it exists
@@ -156,7 +244,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =====================================================
--- 6. CREATE TRIGGER
+-- 7. CREATE TRIGGER
 -- =====================================================
 
 -- Drop existing trigger if it exists
@@ -168,7 +256,7 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
 -- =====================================================
--- 7. FIX EXISTING USERS (if any)
+-- 8. FIX EXISTING USERS (if any)
 -- =====================================================
 
 -- Fix any existing users with missing or invalid roles
@@ -178,7 +266,7 @@ WHERE role_id IS NULL
    OR role_id NOT IN (SELECT id FROM roles);
 
 -- =====================================================
--- 8. VERIFICATION QUERIES
+-- 9. VERIFICATION QUERIES
 -- =====================================================
 
 -- Show current setup status
@@ -204,8 +292,37 @@ ORDER BY u.created_at DESC;
 -- Show available roles
 SELECT 'Available Roles:' as info, name FROM roles;
 
+-- Show audit logs table structure (for super admin verification)
+SELECT 
+  'Audit Logs Table Structure:' as info,
+  column_name,
+  data_type,
+  is_nullable
+FROM information_schema.columns 
+WHERE table_name = 'audit_logs'
+ORDER BY ordinal_position;
+
+-- Show audit log function
+SELECT 
+  'Audit Log Function:' as info,
+  routine_name,
+  routine_type
+FROM information_schema.routines 
+WHERE routine_name = 'log_audit_event';
+
+-- Show audit log RLS policies
+SELECT 
+  'Audit Log RLS Policies:' as info,
+  policyname,
+  permissive,
+  roles,
+  cmd,
+  qual
+FROM pg_policies 
+WHERE tablename = 'audit_logs';
+
 -- =====================================================
--- 9. USEFUL QUERIES FOR TROUBLESHOOTING
+-- 10. USEFUL QUERIES FOR TROUBLESHOOTING
 -- =====================================================
 
 -- Check if trigger exists
@@ -231,5 +348,5 @@ SELECT
   is_nullable,
   data_type
 FROM information_schema.columns 
-WHERE table_name IN ('users', 'roles', 'leads')
+WHERE table_name IN ('users', 'roles', 'leads', 'audit_logs')
 ORDER BY table_name, ordinal_position;
