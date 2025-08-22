@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import type { Lead } from "@/lib/supabase";
+import type { Lead, FollowUpInsert } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 import {
   ChevronUp,
   ChevronDown,
@@ -27,6 +28,7 @@ interface SortConfig {
 }
 
 export const LeadsTable: React.FC = () => {
+  const { toast } = useToast();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +40,7 @@ export const LeadsTable: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [userRole, setUserRole] = useState<string>("");
   const [subAdmins, setSubAdmins] = useState<any[]>([]);
+  const [assigningLead, setAssigningLead] = useState<string | null>(null);
   const rowsPerPage = 10;
 
   // Fetch leads from Supabase
@@ -56,11 +59,12 @@ export const LeadsTable: React.FC = () => {
           return;
         }
 
-        // Get user role
+        // Get user role and ID
         const { data: userData, error: userError } = await supabase
           .from("users")
           .select(
             `
+            id,
             role_id,
             roles (
               name
@@ -77,25 +81,38 @@ export const LeadsTable: React.FC = () => {
         }
 
         const userRole = (userData?.roles as any)?.name;
+        const userId = userData?.id;
+        console.log("Current user:", {
+          userRole,
+          userId,
+          sessionUserId: session.user.id,
+        });
         setUserRole(userRole);
 
         // If super admin, fetch sub-admins for assignment
         if (userRole === "super_admin") {
-          const { data: subAdminData, error: subAdminError } = await supabase
-            .from("users")
-            .select(
-              `
-              id,
-              email,
-              roles (
-                name
-              )
-            `
-            )
-            .eq("roles.name", "sub_admin");
+          // First get the sub_admin role ID
+          const { data: roleData, error: roleError } = await supabase
+            .from("roles")
+            .select("id")
+            .eq("name", "sub_admin")
+            .single();
 
-          if (!subAdminError && subAdminData) {
-            setSubAdmins(subAdminData);
+          if (roleError) {
+            console.error("Error fetching sub_admin role:", roleError);
+          } else if (roleData) {
+            // Then fetch users with that role
+            const { data: subAdminData, error: subAdminError } = await supabase
+              .from("users")
+              .select("id, email")
+              .eq("role_id", roleData.id);
+
+            if (subAdminError) {
+              console.error("Error fetching sub-admins:", subAdminError);
+            } else if (subAdminData) {
+              console.log("Fetched sub-admins:", subAdminData);
+              setSubAdmins(subAdminData);
+            }
           }
         }
 
@@ -104,7 +121,7 @@ export const LeadsTable: React.FC = () => {
         // Filter leads based on user role
         if (userRole === "sub_admin") {
           // Sub-admin can only see leads assigned to them
-          query = query.eq("assigned_to", session.user.id);
+          query = query.eq("assigned_to", userId);
         }
         // Super admin can see all leads (no filter needed)
 
@@ -122,6 +139,7 @@ export const LeadsTable: React.FC = () => {
           throw error;
         }
 
+        console.log("Fetched leads:", data);
         setLeads(data || []);
       } catch (err) {
         console.error("Error fetching leads:", err);
@@ -136,6 +154,20 @@ export const LeadsTable: React.FC = () => {
 
   // Function to assign lead to sub-admin
   const assignLead = async (leadId: string, subAdminId: string) => {
+    console.log("Assigning lead", leadId, "to sub-admin", subAdminId);
+
+    if (!subAdminId || subAdminId === "") {
+      console.error("Invalid sub-admin ID");
+      toast({
+        title: "Error",
+        description: "Please select a valid sub-admin to assign the lead to.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAssigningLead(leadId);
+
     try {
       const { error } = await supabase
         .from("leads")
@@ -144,15 +176,56 @@ export const LeadsTable: React.FC = () => {
 
       if (error) {
         console.error("Error assigning lead:", error);
-        alert("Failed to assign lead");
+        toast({
+          title: "Error",
+          description: "Failed to assign lead: " + error.message,
+          variant: "destructive",
+        });
         return;
       }
 
-      // Refresh the leads list
-      window.location.reload();
+      console.log("Lead assigned successfully");
+
+      // Create a follow-up for the assigned lead
+      const followUpData: FollowUpInsert = {
+        lead_id: leadId,
+        sent_at: new Date().toISOString(),
+        status: "pending",
+        template: "Initial follow-up for newly assigned lead"
+      };
+
+      const { error: followUpError } = await supabase
+        .from("followups")
+        .insert(followUpData);
+
+      if (followUpError) {
+        console.error("Error creating follow-up:", followUpError);
+        // Don't fail the assignment if follow-up creation fails
+      }
+
+      // Update the leads state locally instead of reloading
+      setLeads((prevLeads) =>
+        prevLeads.map((lead) =>
+          lead.id === leadId ? { ...lead, assigned_to: subAdminId } : lead
+        )
+      );
+
+      // Show success message
+      toast({
+        title: "Success",
+        description: "Lead assigned successfully! Follow-up scheduled for tomorrow.",
+      });
     } catch (error) {
       console.error("Error assigning lead:", error);
-      alert("Failed to assign lead");
+      toast({
+        title: "Error",
+        description:
+          "Failed to assign lead: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+        variant: "destructive",
+      });
+    } finally {
+      setAssigningLead(null);
     }
   };
 
@@ -465,9 +538,12 @@ export const LeadsTable: React.FC = () => {
                           onChange={(e) => assignLead(lead.id, e.target.value)}
                           className="text-sm border border-gray-300 rounded px-2 py-1"
                           defaultValue=""
+                          disabled={assigningLead === lead.id}
                         >
                           <option value="" disabled>
-                            Assign to...
+                            {assigningLead === lead.id
+                              ? "Assigning..."
+                              : "Assign to..."}
                           </option>
                           {subAdmins.map((admin) => (
                             <option key={admin.id} value={admin.id}>

@@ -37,6 +37,16 @@ CREATE TABLE IF NOT EXISTS leads (
   assigned_to UUID REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- Create followups table
+CREATE TABLE IF NOT EXISTS followups (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  lead_id UUID REFERENCES leads(id) ON DELETE CASCADE NOT NULL,
+  sent_at TIMESTAMPTZ DEFAULT NOW(),
+  template TEXT,
+  status TEXT DEFAULT 'pending'
+);
+
+
 -- =====================================================
 -- 2. INSERT DEFAULT DATA
 -- =====================================================
@@ -54,6 +64,8 @@ ON CONFLICT (name) DO NOTHING;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE followups ENABLE ROW LEVEL SECURITY;
+
 
 -- =====================================================
 -- 4. CREATE RLS POLICIES
@@ -64,6 +76,8 @@ DROP POLICY IF EXISTS "users_view_own_record" ON users;
 DROP POLICY IF EXISTS "authenticated_view_roles" ON roles;
 DROP POLICY IF EXISTS "authenticated_access_users" ON users;
 DROP POLICY IF EXISTS "authenticated_access_leads" ON leads;
+DROP POLICY IF EXISTS "authenticated_access_followups" ON followups;
+
 
 -- Users table policies
 CREATE POLICY "users_view_own_record" ON users
@@ -79,6 +93,12 @@ CREATE POLICY "authenticated_view_roles" ON roles
 -- Leads table policies
 CREATE POLICY "authenticated_access_leads" ON leads
   FOR ALL USING (auth.role() = 'authenticated');
+
+-- Followups table policies
+CREATE POLICY "authenticated_access_followups" ON followups
+  FOR ALL USING (auth.role() = 'authenticated');
+
+
 
 -- =====================================================
 -- 5. CREATE USER MANAGEMENT FUNCTION

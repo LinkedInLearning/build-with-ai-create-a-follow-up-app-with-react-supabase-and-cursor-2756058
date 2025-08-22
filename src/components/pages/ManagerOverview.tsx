@@ -7,7 +7,7 @@ import {
   Calendar,
   Clock,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, createFollowUpsForExistingLeads } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
 export const ManagerOverview: React.FC = () => {
@@ -22,6 +22,13 @@ export const ManagerOverview: React.FC = () => {
 
   useEffect(() => {
     fetchStats();
+    
+    // Refresh stats every 30 seconds to keep data current
+    const interval = setInterval(() => {
+      fetchStats();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchStats = async () => {
@@ -32,22 +39,56 @@ export const ManagerOverview: React.FC = () => {
       } = await supabase.auth.getSession();
       if (!session?.user) return;
 
-      // Fetch leads assigned to this manager
+      // Get the internal user ID (users.id) from the users table
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .single();
+
+      if (userError) {
+        console.error("Error fetching user data:", userError);
+        return;
+      }
+
+      console.log("Manager user data:", {
+        sessionUserId: session.user.id,
+        internalUserId: userData.id,
+      });
+
+      // Fetch leads assigned to this manager using the internal user ID
       const { data: leads, error: leadsError } = await supabase
         .from("leads")
         .select("*")
-        .eq("assigned_to", session.user.id);
+        .eq("assigned_to", userData.id);
 
       if (leadsError) {
         console.error("Error fetching leads:", leadsError);
         return;
       }
 
+      console.log("Manager leads:", leads);
       const totalLeads = leads?.length || 0;
       const assignedLeads = totalLeads; // All leads are assigned to this manager
-      const pendingFollowups = Math.floor(totalLeads * 0.3); // 30% pending follow-ups
+
+      // Fetch real pending follow-ups for this manager
+      const { data: followUps, error: followUpsError } = await supabase
+        .from("followups")
+        .select("*")
+        .eq("status", "pending");
+
+      if (followUpsError) {
+        console.error("Error fetching follow-ups:", followUpsError);
+      }
+
+      const pendingFollowups = followUps?.length || 0;
       const conversionRate =
         totalLeads > 0 ? Math.round(totalLeads * 0.15 * 10) / 10 : 0; // 15% conversion rate
+
+      // Create follow-ups for existing leads that don't have any
+      if (totalLeads > 0 && pendingFollowups === 0) {
+        await createFollowUpsForExistingLeads(userData.id);
+      }
 
       setStats({
         totalLeads,

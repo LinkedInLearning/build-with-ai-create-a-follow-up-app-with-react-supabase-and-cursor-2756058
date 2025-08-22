@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, Users, Mail, Calendar, BarChart3 } from "lucide-react";
+import {
+  TrendingUp,
+  TrendingDown,
+  Users,
+  Mail,
+  Calendar,
+  BarChart3,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 interface AnalyticsData {
@@ -29,50 +36,90 @@ export const ManagerAnalytics: React.FC = () => {
   const fetchAnalytics = async () => {
     try {
       // Get current user ID
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.user) return;
 
-      // Fetch leads assigned to this manager
+      // Get the internal user ID (users.id) from the users table
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .single();
+
+      if (userError) {
+        console.error("Error fetching user data:", userError);
+        return;
+      }
+
+      console.log("Manager Analytics user data:", {
+        sessionUserId: session.user.id,
+        internalUserId: userData.id,
+      });
+
+      // Fetch leads assigned to this manager using the internal user ID
       const { data: leads, error: leadsError } = await supabase
         .from("leads")
         .select("*")
-        .eq("assigned_to", session.user.id);
+        .eq("assigned_to", userData.id);
 
       if (leadsError) {
         console.error("Error fetching leads:", leadsError);
         return;
       }
 
+      console.log("Manager Analytics leads:", leads);
       const totalLeads = leads?.length || 0;
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
-      
-      const leadsThisMonth = leads?.filter(lead => {
-        const leadDate = new Date(lead.created_at);
-        return leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
-      }).length || 0;
+
+      const leadsThisMonth =
+        leads?.filter((lead) => {
+          const leadDate = new Date(lead.created_at);
+          return (
+            leadDate.getMonth() === currentMonth &&
+            leadDate.getFullYear() === currentYear
+          );
+        }).length || 0;
 
       // Calculate conversion rate (mock: 15% of total leads)
-      const conversionRate = totalLeads > 0 ? Math.round((totalLeads * 0.15) * 10) / 10 : 0;
+      const conversionRate =
+        totalLeads > 0 ? Math.round(totalLeads * 0.15 * 10) / 10 : 0;
 
       // Calculate average response time (mock: 2.4 hours)
       const averageResponseTime = 2.4;
 
       // Group leads by source
       const sourceCounts: { [key: string]: number } = {};
-      leads?.forEach(lead => {
+      leads?.forEach((lead) => {
         sourceCounts[lead.source] = (sourceCounts[lead.source] || 0) + 1;
       });
 
-      const leadsBySource = Object.entries(sourceCounts).map(([source, count]) => ({
-        source,
-        count,
-      }));
+      const leadsBySource = Object.entries(sourceCounts).map(
+        ([source, count]) => ({
+          source,
+          count,
+        })
+      );
 
       // Group leads by month (last 6 months)
       const monthCounts: { [key: string]: number } = {};
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+
       for (let i = 5; i >= 0; i--) {
         const date = new Date();
         date.setMonth(date.getMonth() - i);
@@ -80,7 +127,7 @@ export const ManagerAnalytics: React.FC = () => {
         monthCounts[monthKey] = 0;
       }
 
-      leads?.forEach(lead => {
+      leads?.forEach((lead) => {
         const leadDate = new Date(lead.created_at);
         const monthKey = months[leadDate.getMonth()];
         if (monthCounts[monthKey] !== undefined) {
@@ -88,10 +135,12 @@ export const ManagerAnalytics: React.FC = () => {
         }
       });
 
-      const leadsByMonth = Object.entries(monthCounts).map(([month, count]) => ({
-        month,
-        count,
-      }));
+      const leadsByMonth = Object.entries(monthCounts).map(
+        ([month, count]) => ({
+          month,
+          count,
+        })
+      );
 
       setAnalytics({
         totalLeads,
@@ -163,7 +212,9 @@ export const ManagerAnalytics: React.FC = () => {
                   <stat.icon className="h-8 w-8 text-green-600" />
                 </div>
                 <div className="ml-4 flex-1">
-                  <p className="text-sm font-medium text-gray-500">{stat.name}</p>
+                  <p className="text-sm font-medium text-gray-500">
+                    {stat.name}
+                  </p>
                   <p className="text-2xl font-semibold text-gray-900">
                     {stat.value}
                   </p>
@@ -179,7 +230,9 @@ export const ManagerAnalytics: React.FC = () => {
                 >
                   {stat.change}
                 </span>
-                <span className="text-sm text-gray-500 ml-2">from last month</span>
+                <span className="text-sm text-gray-500 ml-2">
+                  from last month
+                </span>
               </div>
             </div>
           ))
@@ -190,7 +243,9 @@ export const ManagerAnalytics: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Leads by Source */}
         <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Leads by Source</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Leads by Source
+          </h3>
           {loading ? (
             <div className="flex justify-center items-center py-8">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
@@ -198,18 +253,27 @@ export const ManagerAnalytics: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {analytics.leadsBySource.map((item) => (
-                <div key={item.source} className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">{item.source}</span>
+                <div
+                  key={item.source}
+                  className="flex items-center justify-between"
+                >
+                  <span className="text-sm font-medium text-gray-700">
+                    {item.source}
+                  </span>
                   <div className="flex items-center">
                     <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
                       <div
                         className="bg-blue-600 h-2 rounded-full"
                         style={{
-                          width: `${(item.count / analytics.totalLeads) * 100}%`,
+                          width: `${
+                            (item.count / analytics.totalLeads) * 100
+                          }%`,
                         }}
                       />
                     </div>
-                    <span className="text-sm text-gray-500 w-8">{item.count}</span>
+                    <span className="text-sm text-gray-500 w-8">
+                      {item.count}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -219,7 +283,9 @@ export const ManagerAnalytics: React.FC = () => {
 
         {/* Leads by Month */}
         <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Leads by Month</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Leads by Month
+          </h3>
           {loading ? (
             <div className="flex justify-center items-center py-8">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
@@ -227,18 +293,31 @@ export const ManagerAnalytics: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {analytics.leadsByMonth.map((item) => (
-                <div key={item.month} className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">{item.month}</span>
+                <div
+                  key={item.month}
+                  className="flex items-center justify-between"
+                >
+                  <span className="text-sm font-medium text-gray-700">
+                    {item.month}
+                  </span>
                   <div className="flex items-center">
                     <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
                       <div
                         className="bg-green-600 h-2 rounded-full"
                         style={{
-                          width: `${(item.count / Math.max(...analytics.leadsByMonth.map(l => l.count))) * 100}%`,
+                          width: `${
+                            (item.count /
+                              Math.max(
+                                ...analytics.leadsByMonth.map((l) => l.count)
+                              )) *
+                            100
+                          }%`,
                         }}
                       />
                     </div>
-                    <span className="text-sm text-gray-500 w-8">{item.count}</span>
+                    <span className="text-sm text-gray-500 w-8">
+                      {item.count}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -249,18 +328,26 @@ export const ManagerAnalytics: React.FC = () => {
 
       {/* Performance Summary */}
       <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance Summary</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Performance Summary
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">{analytics.conversionRate}%</div>
+            <div className="text-2xl font-bold text-green-600">
+              {analytics.conversionRate}%
+            </div>
             <div className="text-sm text-gray-500">Conversion Rate</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">{analytics.averageResponseTime}h</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {analytics.averageResponseTime}h
+            </div>
             <div className="text-sm text-gray-500">Avg Response Time</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-purple-600">{analytics.leadsThisMonth}</div>
+            <div className="text-2xl font-bold text-purple-600">
+              {analytics.leadsThisMonth}
+            </div>
             <div className="text-sm text-gray-500">New Leads This Month</div>
           </div>
         </div>

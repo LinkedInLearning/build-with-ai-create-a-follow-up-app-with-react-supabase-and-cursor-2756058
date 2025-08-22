@@ -2,20 +2,22 @@ import React, { useState, useEffect } from "react";
 import { Mail, Clock, CheckCircle, AlertCircle, Calendar } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
+import type { FollowUp } from "@/lib/supabase";
 
-interface FollowUp {
+// Local interface for the component's expected format
+interface FollowUpDisplay {
   id: string;
   lead_id: string;
   lead_name: string;
   lead_email: string;
-  status: "pending" | "completed" | "overdue";
+  status: "pending" | "in_progress" | "done";
   scheduled_date: string;
   notes: string;
   created_at: string;
 }
 
 export const ManagerFollowups: React.FC = () => {
-  const [followups, setFollowups] = useState<FollowUp[]>([]);
+  const [followups, setFollowups] = useState<FollowUpDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
 
@@ -26,33 +28,55 @@ export const ManagerFollowups: React.FC = () => {
   const fetchFollowups = async () => {
     try {
       // Get current user ID
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.user) return;
 
-      // Fetch leads assigned to this manager and create follow-ups
+      // Get the internal user ID (users.id) from the users table
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .single();
+
+      if (userError) {
+        console.error("Error fetching user data:", userError);
+        return;
+      }
+
+      console.log("Manager Followups user data:", {
+        sessionUserId: session.user.id,
+        internalUserId: userData.id,
+      });
+
+      // Fetch all leads assigned to this manager
       const { data: leads, error: leadsError } = await supabase
         .from("leads")
         .select("*")
-        .eq("assigned_to", session.user.id);
+        .eq("assigned_to", userData.id);
 
       if (leadsError) {
         console.error("Error fetching leads:", leadsError);
         return;
       }
 
-      // Create mock follow-ups based on leads
-      const mockFollowups: FollowUp[] = leads?.map((lead, index) => ({
-        id: `followup-${lead.id}`,
-        lead_id: lead.id,
-        lead_name: lead.name,
-        lead_email: lead.email,
-        status: index % 3 === 0 ? "pending" : index % 3 === 1 ? "completed" : "overdue",
-        scheduled_date: new Date(Date.now() + (index * 24 * 60 * 60 * 1000)).toISOString(),
-        notes: `Follow-up for ${lead.name} regarding ${lead.interest}`,
-        created_at: lead.created_at,
-      })) || [];
+      console.log("Manager Followups leads:", leads);
 
-      setFollowups(mockFollowups);
+      // Transform all assigned leads into follow-up display format
+      const allFollowups: FollowUpDisplay[] =
+        leads?.map((lead) => ({
+          id: `lead-${lead.id}`, // Use lead ID as the display ID
+          lead_id: lead.id,
+          lead_name: lead.name,
+          lead_email: lead.email,
+          status: "pending", // Default status for all leads
+          scheduled_date: lead.created_at, // Use lead creation date
+          notes: `Follow-up for ${lead.name} regarding ${lead.interest}`,
+          created_at: lead.created_at,
+        })) || [];
+
+      setFollowups(allFollowups);
     } catch (error) {
       console.error("Error fetching follow-ups:", error);
       toast({
@@ -67,15 +91,69 @@ export const ManagerFollowups: React.FC = () => {
 
   const updateFollowUpStatus = async (followUpId: string, status: string) => {
     try {
-      // In a real app, you would update the follow-up in the database
-      setFollowups(prev => 
-        prev.map(followup => 
-          followup.id === followUpId 
-            ? { ...followup, status: status as "pending" | "completed" | "overdue" }
+      // Extract the actual lead ID from the display ID
+      const leadId = followUpId.replace("lead-", "");
+
+      // Check if a follow-up record exists for this lead
+      const { data: existingFollowUp, error: checkError } = await supabase
+        .from("followups")
+        .select("id")
+        .eq("lead_id", leadId)
+        .single();
+
+      if (checkError && checkError.code !== "PGRST116") {
+        // PGRST116 = no rows returned
+        console.error("Error checking existing follow-up:", checkError);
+      }
+
+      if (existingFollowUp) {
+        // Update existing follow-up
+        const { error } = await supabase
+          .from("followups")
+          .update({ status: status as "pending" | "in_progress" | "done" })
+          .eq("id", existingFollowUp.id);
+
+        if (error) {
+          console.error("Error updating follow-up:", error);
+          toast({
+            title: "Error",
+            description: "Failed to update follow-up status",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        // Create new follow-up record
+        const { error } = await supabase.from("followups").insert({
+          lead_id: leadId,
+          sent_at: new Date().toISOString(),
+          status: status as "pending" | "completed" | "overdue",
+          template: `Follow-up status: ${status}`,
+        });
+
+        if (error) {
+          console.error("Error creating follow-up:", error);
+          toast({
+            title: "Error",
+            description: "Failed to create follow-up record",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      // Update local state
+      setFollowups((prev) =>
+        prev.map((followup) =>
+          followup.id === followUpId
+            ? {
+                ...followup,
+                status: status as "pending" | "in_progress" | "done",
+              }
             : followup
         )
       );
-      
+
       toast({
         title: "Success",
         description: "Follow-up status updated",
@@ -90,29 +168,34 @@ export const ManagerFollowups: React.FC = () => {
     }
   };
 
-  const filteredFollowups = selectedStatus === "all" 
-    ? followups 
-    : followups.filter(followup => followup.status === selectedStatus);
+  const filteredFollowups =
+    selectedStatus === "all"
+      ? followups
+      : followups.filter((followup) => followup.status === selectedStatus);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "completed":
+      case "done":
         return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case "overdue":
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
-      default:
+      case "in_progress":
+        return <Clock className="h-5 w-5 text-blue-500" />;
+      case "pending":
         return <Clock className="h-5 w-5 text-yellow-500" />;
+      default:
+        return <Clock className="h-5 w-5 text-gray-500" />;
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "completed":
+      case "done":
         return "bg-green-100 text-green-800";
-      case "overdue":
-        return "bg-red-100 text-red-800";
-      default:
+      case "in_progress":
+        return "bg-blue-100 text-blue-800";
+      case "pending":
         return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -179,10 +262,19 @@ export const ManagerFollowups: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        {getStatusIcon(followup.status)}
-                        <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(followup.status)}`}>
-                          {followup.status}
-                        </span>
+                        <select
+                          value={followup.status}
+                          onChange={(e) =>
+                            updateFollowUpStatus(followup.id, e.target.value)
+                          }
+                          className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full border-0 focus:ring-2 focus:ring-blue-500 ${getStatusBadge(
+                            followup.status
+                          )}`}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="done">Done</option>
+                        </select>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -196,30 +288,9 @@ export const ManagerFollowups: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end gap-2">
-                        {followup.status === "pending" && (
-                          <>
-                            <button
-                              onClick={() => updateFollowUpStatus(followup.id, "completed")}
-                              className="text-green-600 hover:text-green-900"
-                            >
-                              Mark Complete
-                            </button>
-                            <button
-                              onClick={() => updateFollowUpStatus(followup.id, "overdue")}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              Mark Overdue
-                            </button>
-                          </>
-                        )}
-                        {followup.status === "overdue" && (
-                          <button
-                            onClick={() => updateFollowUpStatus(followup.id, "completed")}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            Mark Complete
-                          </button>
-                        )}
+                        <span className="text-gray-400">
+                          Status updated via dropdown
+                        </span>
                       </div>
                     </td>
                   </tr>
