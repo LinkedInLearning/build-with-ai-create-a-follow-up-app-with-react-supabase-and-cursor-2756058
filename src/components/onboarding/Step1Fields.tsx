@@ -18,9 +18,7 @@ export const Step1Fields: React.FC<Step1FieldsProps> = ({ form }) => {
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
           Basic Information
         </h2>
-        <p className="text-gray-600">
-          Let's start with your basic details
-        </p>
+        <p className="text-gray-600">Let's start with your basic details</p>
       </div>
 
       <div className="space-y-4">

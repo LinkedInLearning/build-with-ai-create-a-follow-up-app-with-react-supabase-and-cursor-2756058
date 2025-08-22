@@ -15,6 +15,12 @@ const leadFormSchema = z.object({
   otherSource: z.string().optional(),
   interest: z.string().min(1, "Please tell us about your interest"),
   note: z.string().optional(),
+  consent_marketing: z.boolean().refine((val) => val === true, {
+    message: "Marketing consent is required",
+  }),
+  consent_privacy: z.boolean().refine((val) => val === true, {
+    message: "Privacy consent is required",
+  }),
 });
 
 type LeadFormData = z.infer<typeof leadFormSchema>;
@@ -50,6 +56,9 @@ export const LeadForm: React.FC = () => {
           data.source === "Other" ? data.otherSource || "Other" : data.source,
         interest: data.interest,
         note: data.note || undefined,
+        consent_marketing: data.consent_marketing,
+        consent_privacy: data.consent_privacy,
+        user_agent: navigator.userAgent,
       };
 
       const { error } = await supabase.from("leads").insert([finalData]);
@@ -233,6 +242,53 @@ export const LeadForm: React.FC = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="Any additional information you'd like to share..."
           />
+        </div>
+
+        {/* Consent Fields */}
+        <div className="space-y-3">
+          <div className="flex items-start space-x-3">
+            <input
+              id="consent_marketing"
+              type="checkbox"
+              {...register("consent_marketing")}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+            />
+            <div className="flex-1">
+              <label
+                htmlFor="consent_marketing"
+                className="text-sm font-medium text-gray-700 cursor-pointer"
+              >
+                I agree to receive marketing emails
+              </label>
+              {errors.consent_marketing && (
+                <p className="text-red-500 text-sm mt-1">
+                  {errors.consent_marketing.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-start space-x-3">
+            <input
+              id="consent_privacy"
+              type="checkbox"
+              {...register("consent_privacy")}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+            />
+            <div className="flex-1">
+              <label
+                htmlFor="consent_privacy"
+                className="text-sm font-medium text-gray-700 cursor-pointer"
+              >
+                I have read the privacy policy
+              </label>
+              {errors.consent_privacy && (
+                <p className="text-red-500 text-sm mt-1">
+                  {errors.consent_privacy.message}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Submit Button */}

@@ -40,17 +40,31 @@ export const LandingPage: React.FC = () => {
             source: data.step2?.source || "Other",
             interest: data.step3?.interest || "",
             note: data.step3?.note || null,
+            consent_marketing: data.step3?.consent_marketing || false,
+            consent_privacy: data.step3?.consent_privacy || false,
+            user_agent: navigator.userAgent,
           };
 
           const { error } = await supabase.from("leads").insert([leadData]);
 
           if (error) {
             console.error("Supabase error:", error);
-            // Continue anyway - don't fail the user experience
+            if (error.message === "Supabase not configured") {
+              // Show a helpful message for development
+              alert(
+                "Database not configured. Please set up your Supabase environment variables."
+              );
+              return;
+            }
+            throw error;
           }
+
+          // Show success message
+          console.log("Lead submitted successfully:", leadData);
         } catch (supabaseError) {
           console.error("Supabase connection error:", supabaseError);
-          // Continue anyway - don't fail the user experience
+          alert("Failed to connect to database. Please try again.");
+          return;
         }
       }
 

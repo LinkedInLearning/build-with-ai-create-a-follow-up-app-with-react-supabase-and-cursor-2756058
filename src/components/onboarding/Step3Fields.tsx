@@ -74,6 +74,76 @@ export const Step3Fields: React.FC<Step3FieldsProps> = ({ form }) => {
             Feel free to share any other details that might be relevant
           </p>
         </div>
+
+        {/* Consent Fields */}
+        <div className="space-y-3 pt-4 border-t border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">
+            Consent & Privacy
+          </h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Please review and accept our terms before proceeding
+          </p>
+
+          <div className="flex items-start space-x-3">
+            <input
+              id="consent_marketing"
+              type="checkbox"
+              {...register("consent_marketing")}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+              aria-describedby={
+                errors.consent_marketing ? "consent-marketing-error" : undefined
+              }
+              aria-invalid={!!errors.consent_marketing}
+            />
+            <div className="flex-1">
+              <Label
+                htmlFor="consent_marketing"
+                className="text-sm font-medium text-gray-700 cursor-pointer"
+              >
+                I agree to receive marketing emails
+              </Label>
+              {errors.consent_marketing && (
+                <p
+                  id="consent-marketing-error"
+                  className="text-red-500 text-sm mt-1"
+                  role="alert"
+                >
+                  {errors.consent_marketing.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-start space-x-3">
+            <input
+              id="consent_privacy"
+              type="checkbox"
+              {...register("consent_privacy")}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+              aria-describedby={
+                errors.consent_privacy ? "consent-privacy-error" : undefined
+              }
+              aria-invalid={!!errors.consent_privacy}
+            />
+            <div className="flex-1">
+              <Label
+                htmlFor="consent_privacy"
+                className="text-sm font-medium text-gray-700 cursor-pointer"
+              >
+                I have read the privacy policy
+              </Label>
+              {errors.consent_privacy && (
+                <p
+                  id="consent-privacy-error"
+                  className="text-red-500 text-sm mt-1"
+                  role="alert"
+                >
+                  {errors.consent_privacy.message}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

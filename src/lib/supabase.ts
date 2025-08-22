@@ -17,6 +17,9 @@ export interface Lead {
   interest: string;
   note?: string;
   assigned_to?: string;
+  consent_marketing: boolean;
+  consent_privacy: boolean;
+  user_agent?: string;
 }
 
 export type LeadInsert = Omit<Lead, "id" | "created_at">;
