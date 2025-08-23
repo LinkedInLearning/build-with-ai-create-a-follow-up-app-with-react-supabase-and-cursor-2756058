@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Users,
-  Mail,
-  TrendingUp,
-  Activity,
-  Calendar,
-  Clock,
-} from "lucide-react";
+import { Users, Mail, TrendingUp, Activity } from "lucide-react";
 import { supabase, createFollowUpsForExistingLeads } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
@@ -22,7 +15,7 @@ export const ManagerOverview: React.FC = () => {
 
   useEffect(() => {
     fetchStats();
-    
+
     // Refresh stats every 30 seconds to keep data current
     const interval = setInterval(() => {
       fetchStats();
@@ -51,11 +44,6 @@ export const ManagerOverview: React.FC = () => {
         return;
       }
 
-      console.log("Manager user data:", {
-        sessionUserId: session.user.id,
-        internalUserId: userData.id,
-      });
-
       // Fetch leads assigned to this manager using the internal user ID
       const { data: leads, error: leadsError } = await supabase
         .from("leads")
@@ -67,7 +55,6 @@ export const ManagerOverview: React.FC = () => {
         return;
       }
 
-      console.log("Manager leads:", leads);
       const totalLeads = leads?.length || 0;
       const assignedLeads = totalLeads; // All leads are assigned to this manager
 

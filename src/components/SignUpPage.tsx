@@ -15,7 +15,9 @@ interface SignUpPageProps {
   onSignUp?: (user: User) => void;
 }
 
-export const SignUpPage: React.FC<SignUpPageProps> = ({ onSignUp }) => {
+export const SignUpPage: React.FC<SignUpPageProps> = ({
+  onSignUp: _onSignUp,
+}) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -81,7 +83,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSignUp }) => {
             // Continue without a role - it will be assigned later
           }
 
-          const { data: userRecord, error: userError } = await supabase
+          const { error: userError } = await supabase
             .from("users")
             .insert({
               user_id: data.user.id,

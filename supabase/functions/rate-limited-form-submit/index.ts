@@ -44,7 +44,6 @@ serve(async (req) => {
       "127.0.0.1";
 
     // Check rate limit
-    console.log("Checking rate limit for IP:", clientIP);
     const { data: rateLimitCheck, error: rateLimitError } = await supabase.rpc(
       "check_rate_limit",
       {
@@ -53,8 +52,6 @@ serve(async (req) => {
         p_hours: 1,
       }
     );
-
-    console.log("Rate limit check result:", { rateLimitCheck, rateLimitError });
 
     if (rateLimitError) {
       console.error("Rate limit check error:", rateLimitError);
@@ -110,13 +107,10 @@ serve(async (req) => {
     }
 
     // Record the form submission for rate limiting
-    console.log("Recording form submission for IP:", clientIP);
     const { data: submissionRecord, error: submissionError } =
       await supabase.rpc("record_form_submission", {
         p_ip_address: clientIP,
       });
-
-    console.log("Submission record result:", { submissionRecord, submissionError });
 
     if (submissionError) {
       console.error("Submission record error:", submissionError);

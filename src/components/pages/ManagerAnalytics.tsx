@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  TrendingUp,
-  TrendingDown,
-  Users,
-  Mail,
-  Calendar,
-  BarChart3,
-} from "lucide-react";
+import { TrendingUp, Users, Mail, Calendar } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 interface AnalyticsData {
@@ -53,10 +46,7 @@ export const ManagerAnalytics: React.FC = () => {
         return;
       }
 
-      console.log("Manager Analytics user data:", {
-        sessionUserId: session.user.id,
-        internalUserId: userData.id,
-      });
+      // Manager Analytics user data retrieved
 
       // Fetch leads assigned to this manager using the internal user ID
       const { data: leads, error: leadsError } = await supabase
@@ -69,7 +59,7 @@ export const ManagerAnalytics: React.FC = () => {
         return;
       }
 
-      console.log("Manager Analytics leads:", leads);
+      // Manager Analytics leads retrieved
       const totalLeads = leads?.length || 0;
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();

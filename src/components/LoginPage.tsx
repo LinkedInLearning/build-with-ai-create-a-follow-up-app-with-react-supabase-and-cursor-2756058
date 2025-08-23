@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { logLoginEvent } from "@/lib/auth";
@@ -83,7 +83,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           return;
         }
 
-        const userRole = userData?.roles?.name;
+        const userRole = (userData?.roles as any)?.name;
 
         if (!userRole) {
           console.error("No role found for user");
@@ -132,34 +132,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     }
   };
 
-  const handleSignOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
+  // const handleSignOut = async () => {
+  //   try {
+  //     const { error } = await supabase.auth.signOut();
 
-      if (error) {
-        throw error;
-      }
+  //     if (error) {
+  //       throw error;
+  //     }
 
-      toast({
-        variant: "success",
-        title: "Signed Out",
-        description: "You have been successfully signed out.",
-      });
+  //     toast({
+  //       variant: "success",
+  //       title: "Signed Out",
+  //       description: "You have been successfully signed out.",
+  //     });
 
-      // The parent component should handle the redirect
-      window.location.reload(); // Simple redirect for demo
-    } catch (error) {
-      console.error("Sign out error:", error);
-      toast({
-        variant: "destructive",
-        title: "Sign Out Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "An error occurred while signing out.",
-      });
-    }
-  };
+  //     // The parent component should handle the redirect
+  //     window.location.reload(); // Simple redirect for demo
+  //   } catch (error) {
+  //     console.error("Sign out error:", error);
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Sign Out Error",
+  //       description:
+  //         error instanceof Error
+  //           ? error.message
+  //           : "An error occurred while signing out.",
+  //     });
+  //   }
+  // };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">

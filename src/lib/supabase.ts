@@ -111,7 +111,7 @@ export const getLeadsData = async () => {
 
     if (!userData) return { data: null, error: null };
 
-    const userRole = userData.roles.name;
+    const userRole = (userData.roles as any).name;
 
     // Super admin gets full data, sub admin gets hashed data
     const tableName = userRole === "super_admin" ? "leads" : "leads_hashed";
@@ -155,19 +155,12 @@ export const logAuditEvent = async (
 
     if (!userData) return;
 
-    const auditData: AuditLogInsert = {
-      user_id: userData.id,
-      role: userData.roles.name,
-      action,
-      table_name: tableName,
-      lead_id: leadId,
-      additional_data: additionalData,
-    };
+    // Audit data prepared for logging
 
     // Call the database function to log the audit event
     const { error } = await supabase.rpc("log_audit_event", {
       p_user_id: userData.id,
-      p_role: userData.roles.name,
+      p_role: (userData.roles as any).name,
       p_action: action,
       p_table_name: tableName,
       p_lead_id: leadId,
@@ -233,11 +226,7 @@ export const createFollowUpsForExistingLeads = async (userId: string) => {
           createError
         );
       } else {
-        console.log(
-          "Created follow-ups for",
-          newFollowUps.length,
-          "existing leads"
-        );
+        // Created follow-ups for existing leads
       }
     }
   } catch (error) {

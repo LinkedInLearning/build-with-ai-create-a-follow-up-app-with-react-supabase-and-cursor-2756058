@@ -52,8 +52,6 @@ serve(async (req) => {
       .json()
       .catch(() => ({ batchSize: 10 }));
 
-    console.log(`Processing email queue with batch size: ${batchSize}`);
-
     // Get pending emails from queue
     const { data: pendingEmails, error: queueError } = await supabase.rpc(
       "get_pending_emails",
@@ -89,8 +87,6 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Found ${pendingEmails.length} pending emails to process`);
-
     const results = {
       processed: pendingEmails.length,
       successful: 0,
@@ -101,8 +97,6 @@ serve(async (req) => {
     // Process each email in the batch
     for (const email of pendingEmails) {
       try {
-        console.log(`Processing email ${email.id} to ${email.recipient_email}`);
-
         // Send email using Resend client
         const emailSent = await sendEmail(email, supabase);
 
@@ -126,8 +120,7 @@ serve(async (req) => {
             },
           });
 
-          console.log(`✅ Email ${email.id} sent successfully`);
-        } else {
+          } else {
           throw new Error("Email service returned failure");
         }
       } catch (error) {
@@ -143,10 +136,6 @@ serve(async (req) => {
         results.errors.push(`Email ${email.id}: ${error.message}`);
       }
     }
-
-    console.log(
-      `Email queue processing complete: ${results.successful} sent, ${results.failed} failed`
-    );
 
     return new Response(
       JSON.stringify({
@@ -210,7 +199,6 @@ async function sendEmail(email: any, supabase: any): Promise<boolean> {
       throw new Error(`Resend API error: ${error.message}`);
     }
 
-    console.log("Email sent successfully:", data);
     return true;
   } catch (error) {
     console.error("Email sending error:", error);

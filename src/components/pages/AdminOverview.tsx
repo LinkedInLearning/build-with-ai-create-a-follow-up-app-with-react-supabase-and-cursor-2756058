@@ -49,8 +49,6 @@ export const AdminOverview: React.FC = () => {
           .from("leads")
           .select("*", { count: "exact", head: true });
 
-        console.log("Admin Overview stats:", { userCount, leadCount });
-
         // Calculate conversion rate (placeholder)
         const conversionRate =
           userCount && leadCount

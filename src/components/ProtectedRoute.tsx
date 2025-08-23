@@ -48,8 +48,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
               .eq("user_id", session.user.id)
               .maybeSingle();
 
-
-
             if (userError) {
               console.error(
                 "ProtectedRoute: Error fetching user data:",
@@ -100,7 +98,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-
       if (event === "SIGNED_IN" && session?.user) {
         try {
           const { data: userData, error: userError } = await supabase
@@ -157,9 +154,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     };
   }, []);
 
-  const handleLogin = (userData: User) => {
-    setUser(userData);
-  };
+  // const handleLogin = (userData: User) => {
+  //   setUser(userData);
+  // };
 
   if (loading) {
     return (

@@ -1,5 +1,6 @@
 import React from "react";
-import { UseFormReturn, Controller } from "react-hook-form";
+import type { UseFormReturn } from "react-hook-form";
+import { Controller } from "react-hook-form";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import {
@@ -25,9 +26,7 @@ export const Step2Fields: React.FC<Step2FieldsProps> = ({ form }) => {
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
           Contact & Source
         </h2>
-        <p className="text-gray-600">
-          Tell us how you heard about us
-        </p>
+        <p className="text-gray-600">Tell us how you heard about us</p>
       </div>
 
       <div className="space-y-4">
@@ -44,10 +43,7 @@ export const Step2Fields: React.FC<Step2FieldsProps> = ({ form }) => {
             autoComplete="tel"
             aria-describedby="phone-help"
           />
-          <p
-            id="phone-help"
-            className="text-gray-500 text-sm mt-1"
-          >
+          <p id="phone-help" className="text-gray-500 text-sm mt-1">
             We'll use this to contact you if needed
           </p>
         </div>

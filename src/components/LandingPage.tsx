@@ -60,8 +60,7 @@ export const LandingPage: React.FC = () => {
           }
 
           // Show success message
-          console.log("Lead submitted successfully:", leadData);
-        } catch (supabaseError) {
+          } catch (supabaseError) {
           console.error("Supabase connection error:", supabaseError);
           alert("Failed to connect to database. Please try again.");
           return;

@@ -61,8 +61,6 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Looking up lead with ID: ${leadId} for template: ${template}`);
-
     // Look up the lead's email and name from the leads table
     const { data: lead, error: leadError } = await supabase
       .from("leads")
@@ -94,7 +92,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Found lead: ${lead.name} (${lead.email})`);
+    `);
 
     // Send follow-up email via Resend
     const emailSent = await sendFollowUpEmail(lead.email, lead.name, template);
@@ -129,8 +127,6 @@ serve(async (req) => {
           template: template,
         },
       });
-
-      console.log(`✅ Follow-up email sent to ${lead.email}`);
 
       return new Response(JSON.stringify({ status: "sent" }), {
         status: 200,

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { UserPlus, Users, Trash2, Edit, Shield, ShieldOff } from "lucide-react";
+import { UserPlus, Users, Trash2, Shield, ShieldOff } from "lucide-react";
 
 const assignRoleSchema = z.object({
   userId: z.string().min(1, "Please select a user"),

@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  OnboardingSchema,
   OnboardingStep1Schema,
   OnboardingStep2Schema,
   OnboardingStep3Schema,
@@ -47,7 +46,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
   const [step1Data, setStep1Data] = useState<OnboardingStep1 | null>(null);
   const [step2Data, setStep2Data] = useState<OnboardingStep2 | null>(null);
-  const [step3Data, setStep3Data] = useState<OnboardingStep3 | null>(null);
+  // const [step3Data, setStep3Data] = useState<OnboardingStep3 | null>(null);
 
   const handleStep1Submit = async (data: OnboardingStep1) => {
     setStep1Data(data);
@@ -62,7 +61,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   };
 
   const handleStep3Submit = async (data: OnboardingStep3) => {
-    setStep3Data(data);
+    // setStep3Data(data);
     setCompletedSteps((prev) => new Set([...prev, 3]));
 
     // Complete the onboarding

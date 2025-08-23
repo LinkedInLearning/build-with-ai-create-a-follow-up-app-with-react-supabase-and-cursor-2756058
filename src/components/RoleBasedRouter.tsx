@@ -37,7 +37,7 @@ export const RoleBasedRouter: React.FC = () => {
           setUser({
             id: session.user.id,
             email: session.user.email || "",
-            role: userData?.roles?.name || "user",
+            role: (userData?.roles as any)?.name || "user",
           });
         }
       } catch (error) {

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Mail, Clock, CheckCircle, AlertCircle, Calendar } from "lucide-react";
+import { Mail, Calendar } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
-import type { FollowUp } from "@/lib/supabase";
+// import type { FollowUp } from "@/lib/supabase";
 
 // Local interface for the component's expected format
 interface FollowUpDisplay {
@@ -45,11 +45,6 @@ export const ManagerFollowups: React.FC = () => {
         return;
       }
 
-      console.log("Manager Followups user data:", {
-        sessionUserId: session.user.id,
-        internalUserId: userData.id,
-      });
-
       // Fetch all leads assigned to this manager
       const { data: leads, error: leadsError } = await supabase
         .from("leads")
@@ -60,8 +55,6 @@ export const ManagerFollowups: React.FC = () => {
         console.error("Error fetching leads:", leadsError);
         return;
       }
-
-      console.log("Manager Followups leads:", leads);
 
       // Transform all assigned leads into follow-up display format
       const allFollowups: FollowUpDisplay[] =
@@ -173,18 +166,18 @@ export const ManagerFollowups: React.FC = () => {
       ? followups
       : followups.filter((followup) => followup.status === selectedStatus);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "done":
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case "in_progress":
-        return <Clock className="h-5 w-5 text-blue-500" />;
-      case "pending":
-        return <Clock className="h-5 w-5 text-yellow-500" />;
-      default:
-        return <Clock className="h-5 w-5 text-gray-500" />;
-    }
-  };
+  // const getStatusIcon = (status: string) => {
+  //   switch (status) {
+  //     case "done":
+  //       return <CheckCircle className="h-5 w-5 text-green-500" />;
+  //     case "in_progress":
+  //       return <Clock className="h-5 w-5 text-blue-500" />;
+  //     case "pending":
+  //       return <Clock className="h-5 w-5 text-yellow-500" />;
+  //     default:
+  //       return <Clock className="h-5 w-5 text-gray-500" />;
+  //   }
+  // };
 
   const getStatusBadge = (status: string) => {
     switch (status) {

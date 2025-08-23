@@ -9,21 +9,15 @@ export const OnboardingStep1Schema = z.object({
 // Step 2: Contact and source information
 export const OnboardingStep2Schema = z.object({
   phone: z.string().optional(),
-  source: z.enum(["Google", "Referral", "Other"], {
-    required_error: "Please select a source",
-  }),
+  source: z.enum(["Google", "Referral", "Other"]),
 });
 
 // Step 3: Interest, notes, and consent
 export const OnboardingStep3Schema = z.object({
   interest: z.string().min(1, "Interest is required"),
   note: z.string().optional(),
-  consent_marketing: z.boolean({
-    required_error: "Marketing consent is required",
-  }),
-  consent_privacy: z.boolean({
-    required_error: "Privacy consent is required",
-  }),
+  consent_marketing: z.boolean(),
+  consent_privacy: z.boolean(),
 });
 
 // Combined schema that enforces step order

@@ -24,7 +24,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  // DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -125,11 +125,7 @@ export const LeadsTable: React.FC = () => {
 
         const userRole = (userData?.roles as any)?.name;
         const userId = userData?.id;
-        console.log("Current user:", {
-          userRole,
-          userId,
-          sessionUserId: session.user.id,
-        });
+        // Current user data retrieved
         setUserRole(userRole);
         setIsSuperAdmin(userRole === "super_admin");
 
@@ -154,7 +150,7 @@ export const LeadsTable: React.FC = () => {
             if (subAdminError) {
               console.error("Error fetching sub-admins:", subAdminError);
             } else if (subAdminData) {
-              console.log("Fetched sub-admins:", subAdminData);
+              // Fetched sub-admins successfully
               setSubAdmins(subAdminData);
             }
           }
@@ -178,7 +174,7 @@ export const LeadsTable: React.FC = () => {
         // Super admin can see all leads (no filter needed)
 
         if (error) {
-          if (error.message === "Supabase not configured") {
+          if ((error as any).message === "Supabase not configured") {
             setError(
               "Database not configured. Please set up your Supabase environment variables."
             );
@@ -187,7 +183,7 @@ export const LeadsTable: React.FC = () => {
           throw error;
         }
 
-        console.log("Fetched leads:", filteredData);
+        // Fetched leads successfully
         setLeads(filteredData);
       } catch (err) {
         console.error("Error fetching leads:", err);
@@ -202,7 +198,7 @@ export const LeadsTable: React.FC = () => {
 
   // Function to assign lead to sub-admin
   const assignLead = async (leadId: string, subAdminId: string) => {
-    console.log("Assigning lead", leadId, "to sub-admin", subAdminId);
+    // Assigning lead to sub-admin
 
     if (!subAdminId || subAdminId === "") {
       console.error("Invalid sub-admin ID");
@@ -232,7 +228,7 @@ export const LeadsTable: React.FC = () => {
         return;
       }
 
-      console.log("Lead assigned successfully");
+      // Lead assigned successfully
 
       // Create a follow-up for the assigned lead
       const followUpData: FollowUpInsert = {
@@ -386,7 +382,7 @@ export const LeadsTable: React.FC = () => {
     setSendingFollowUp(leadId);
 
     try {
-      const { data, error } = await supabase.functions.invoke("sendFollowUp", {
+      const { error } = await supabase.functions.invoke("sendFollowUp", {
         body: { leadId, template },
       });
 

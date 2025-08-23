@@ -54,8 +54,6 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Looking up lead with ID: ${leadId}`);
-
     // Look up the lead's email and name from the leads table
     const { data: lead, error: leadError } = await supabase
       .from("leads")
@@ -87,8 +85,6 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Found lead: ${lead.name} (${lead.email})`);
-
     // Send confirmation email via Resend
     const emailSent = await sendConfirmationEmail(lead.email, lead.name);
 
@@ -106,8 +102,6 @@ serve(async (req) => {
           email_type: "confirmation",
         },
       });
-
-      console.log(`✅ Confirmation email sent to ${lead.email}`);
 
       return new Response(JSON.stringify({ status: "sent" }), {
         status: 200,

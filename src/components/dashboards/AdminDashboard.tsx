@@ -6,7 +6,6 @@ import {
   BarChart3,
   Settings,
   Home,
-  ChevronDown,
   Mail,
   Activity,
 } from "lucide-react";
@@ -19,11 +18,11 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
-  SidebarHeaderDescription,
+  // SidebarHeaderDescription,
   SidebarHeaderTitle,
   SidebarNav,
   SidebarNavItem,
-  SidebarNavLink,
+  // SidebarNavLink,
   SidebarToggle,
 } from "@/components/ui/sidebar";
 
@@ -36,7 +35,7 @@ export const AdminDashboard: React.FC = () => {
     try {
       // Log logout event before signing out
       await logLogoutEvent();
-      
+
       const { error } = await supabase.auth.signOut();
 
       if (error) {
@@ -83,28 +82,23 @@ export const AdminDashboard: React.FC = () => {
                 const isActive = location.pathname === item.href;
                 return (
                   <SidebarNavItem key={item.name}>
-                    <SidebarNavLink
-                      asChild
-                      className={`transition-colors duration-200 ${
+                    <Link
+                      to={item.href}
+                      className={`flex items-center gap-3 px-3 py-2.5 transition-colors duration-200 ${
                         isActive
                           ? "bg-blue-50 text-blue-700 border-r-2 border-blue-600"
                           : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                       }`}
                     >
-                      <Link
-                        to={item.href}
-                        className="flex items-center gap-3 px-3 py-2.5"
-                      >
-                        <item.icon
-                          className={`h-5 w-5 ${
-                            isActive ? "text-blue-600" : "text-gray-500"
-                          }`}
-                        />
-                        {!isCollapsed && (
-                          <span className="font-medium">{item.name}</span>
-                        )}
-                      </Link>
-                    </SidebarNavLink>
+                      <item.icon
+                        className={`h-5 w-5 ${
+                          isActive ? "text-blue-600" : "text-gray-500"
+                        }`}
+                      />
+                      {!isCollapsed && (
+                        <span className="font-medium">{item.name}</span>
+                      )}
+                    </Link>
                   </SidebarNavItem>
                 );
               })}

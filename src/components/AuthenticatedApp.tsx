@@ -37,7 +37,7 @@ export const AuthenticatedApp: React.FC = () => {
         setUser({
           id: session.user.id,
           email: session.user.email || "",
-          role: userData?.roles?.name || "user",
+          role: (userData?.roles as any)?.name || "user",
         });
       }
     };
@@ -61,7 +61,7 @@ export const AuthenticatedApp: React.FC = () => {
                 Lead Management System
               </h1>
               <p className="text-sm text-gray-600">
-                Welcome, {user.email} {user.role && `(${user.role})`}
+                Welcome, {user?.email} {user?.role && `(${user.role})`}
               </p>
             </div>
             <button
