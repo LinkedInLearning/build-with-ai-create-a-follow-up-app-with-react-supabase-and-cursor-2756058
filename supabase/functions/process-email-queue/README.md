@@ -9,7 +9,9 @@ This edge function processes the email queue in batches, sending emails through 
 - **Retry Logic**: Automatically retries failed emails up to 3 times
 - **Error Handling**: Comprehensive error handling and logging
 - **Audit Logging**: Logs all email activities for monitoring
-- **Flexible Email Service**: Supports any email service (Resend, SendGrid, Mailgun, etc.)
+- **Resend Integration**: Uses Resend client for reliable email delivery
+- **Email Templates**: Professional HTML templates with personalization
+- **Lead Personalization**: Automatically includes lead names in emails
 
 ## Deployment
 
@@ -30,8 +32,7 @@ Make sure your Supabase project has the following environment variables set:
 ```bash
 PROJECT_URL=your_supabase_project_url
 PROJECT_SERVICE_ROLE_KEY=your_service_role_key
-EMAIL_SERVICE_API_KEY=your_email_service_api_key
-EMAIL_SERVICE_URL=your_email_service_api_url
+RESEND_API_KEY=your_resend_api_key
 FROM_EMAIL=noreply@yourdomain.com
 ```
 
@@ -91,37 +92,35 @@ curl -X POST 'https://your-project.supabase.co/functions/v1/process-email-queue'
 
 ## Email Service Configuration
 
-The function is configured to use Resend by default, but you can easily switch to any email service:
+The function uses the Resend client for reliable email delivery:
 
-### Resend (Default)
-
-```typescript
-const EMAIL_SERVICE_CONFIG = {
-  apiKey: Deno.env.get("EMAIL_SERVICE_API_KEY"),
-  apiUrl: "https://api.resend.com/emails",
-  fromEmail: "noreply@yourdomain.com",
-};
-```
-
-### SendGrid
+### Resend Configuration
 
 ```typescript
 const EMAIL_SERVICE_CONFIG = {
-  apiKey: Deno.env.get("EMAIL_SERVICE_API_KEY"),
-  apiUrl: "https://api.sendgrid.com/v3/mail/send",
-  fromEmail: "noreply@yourdomain.com",
+  apiKey: Deno.env.get("RESEND_API_KEY"),
+  fromEmail: Deno.env.get("FROM_EMAIL"),
 };
+
+// Initialize Resend client
+const resend = new Resend(EMAIL_SERVICE_CONFIG.apiKey);
 ```
 
-### Mailgun
+### Email Templates
 
-```typescript
-const EMAIL_SERVICE_CONFIG = {
-  apiKey: Deno.env.get("EMAIL_SERVICE_API_KEY"),
-  apiUrl: "https://api.mailgun.net/v3/yourdomain.com/messages",
-  fromEmail: "noreply@yourdomain.com",
-};
-```
+The function includes professional HTML email templates that are automatically customized based on the email type:
+
+- **Welcome Emails**: Personalized welcome messages for new leads
+- **Follow-up Emails**: Custom follow-up content with lead personalization
+- **Notification Emails**: Important updates and notifications
+- **Default Template**: Generic messages with professional styling
+
+Each template includes:
+
+- Responsive HTML design
+- Professional styling
+- Lead name personalization
+- Consistent branding
 
 ## Queue Management
 

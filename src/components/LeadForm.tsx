@@ -103,6 +103,27 @@ export const LeadForm: React.FC = () => {
           "Your information has been submitted successfully. We'll get back to you soon!",
       });
 
+      // Send confirmation email if we have a lead_id
+      if (result?.lead_id) {
+        try {
+          const { data: emailResult, error: emailError } =
+            await supabase.functions.invoke("sendConfirmationEmail", {
+              body: { leadId: result.lead_id },
+            });
+
+          if (emailError) {
+            console.error("Error sending confirmation email:", emailError);
+            // Don't show error to user since form submission was successful
+            // Just log it for debugging
+          } else {
+            console.log("Confirmation email sent:", emailResult);
+          }
+        } catch (emailErr) {
+          console.error("Failed to send confirmation email:", emailErr);
+          // Continue with form submission success - don't fail the whole process
+        }
+      }
+
       // Reset form
       reset();
     } catch (err) {
