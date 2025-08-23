@@ -2,9 +2,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { supabase, logAuditEvent } from "@/lib/supabase";
-import type { LeadInsert } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 // Zod schema for form validation
 const leadFormSchema = z.object({
@@ -47,8 +46,8 @@ export const LeadForm: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // If source is "Other", use the otherSource value
-      const finalData: LeadInsert = {
+      // Prepare form data
+      const formData = {
         name: data.name,
         email: data.email,
         phone: data.phone || undefined,
@@ -58,37 +57,41 @@ export const LeadForm: React.FC = () => {
         note: data.note || undefined,
         consent_marketing: data.consent_marketing,
         consent_privacy: data.consent_privacy,
-        user_agent: navigator.userAgent,
       };
 
-      const { data: insertedLead, error } = await supabase.from("leads").insert([finalData]).select();
+      // Call the rate-limited edge function using Supabase client
+      const { data: result, error } = await supabase.functions.invoke(
+        "rate-limited-form-submit",
+        {
+          body: formData,
+        }
+      );
 
       if (error) {
-        if (error.message === "Supabase not configured") {
-          // Show a helpful message for development
+        console.error("Function error:", error);
+
+        // Handle rate limiting error
+        if (error.message?.includes("rate limit") || error.status === 429) {
           toast({
             variant: "destructive",
-            title: "Configuration Required",
-            description:
-              "Please set up your Supabase environment variables in the .env file.",
+            title: "Rate Limit Exceeded",
+            description: "Too many submissions. Please try again later.",
           });
           return;
         }
-        throw error;
-      }
 
-      // Log audit event for lead creation
-      if (insertedLead && insertedLead[0]) {
-        await logAuditEvent(
-          "create",
-          "leads",
-          insertedLead[0].id,
-          {
-            lead_name: finalData.name,
-            lead_email: finalData.email,
-            source: finalData.source
-          }
-        );
+        // Handle validation errors
+        if (error.status === 400) {
+          toast({
+            variant: "destructive",
+            title: "Validation Error",
+            description:
+              error.message || "Please check your form data and try again.",
+          });
+          return;
+        }
+
+        throw new Error(error.message || "Failed to submit form");
       }
 
       // Show success toast
@@ -96,6 +99,7 @@ export const LeadForm: React.FC = () => {
         variant: "success",
         title: "Success!",
         description:
+          result?.message ||
           "Your information has been submitted successfully. We'll get back to you soon!",
       });
 

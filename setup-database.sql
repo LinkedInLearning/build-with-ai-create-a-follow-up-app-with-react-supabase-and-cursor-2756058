@@ -53,6 +53,33 @@ CREATE TABLE IF NOT EXISTS followups (
   status TEXT DEFAULT 'pending'
 );
 
+-- Create form_submissions table for rate limiting
+CREATE TABLE IF NOT EXISTS form_submissions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  ip_address INET NOT NULL,
+  submitted_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create email_queue table for batch email processing
+CREATE TABLE IF NOT EXISTS email_queue (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  recipient_email TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  email_type TEXT NOT NULL, -- 'welcome', 'followup', 'notification', etc.
+  lead_id UUID REFERENCES leads(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  priority INTEGER DEFAULT 1, -- 1=normal, 2=high, 3=urgent
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'sent', 'failed')),
+  attempts INTEGER DEFAULT 0,
+  last_attempt TIMESTAMPTZ,
+  error_message TEXT,
+  scheduled_at TIMESTAMPTZ DEFAULT NOW(),
+  sent_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Create audit_logs table for super admin monitoring
 CREATE TABLE IF NOT EXISTS audit_logs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -88,6 +115,8 @@ ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE followups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE form_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_queue ENABLE ROW LEVEL SECURITY;
 
 -- Enable RLS on the hashed view
 ALTER VIEW leads_hashed SET (security_invoker = true);
@@ -110,6 +139,9 @@ DROP POLICY IF EXISTS "super_admin_audit_logs_select" ON audit_logs;
 DROP POLICY IF EXISTS "audit_logs_insert_system" ON audit_logs;
 DROP POLICY IF EXISTS "audit_logs_deny_delete" ON audit_logs;
 DROP POLICY IF EXISTS "audit_logs_deny_update" ON audit_logs;
+DROP POLICY IF EXISTS "form_submissions_insert_system" ON form_submissions;
+DROP POLICY IF EXISTS "form_submissions_select_system" ON form_submissions;
+DROP POLICY IF EXISTS "email_queue_system_access" ON email_queue;
 
 
 -- Users table policies
@@ -170,6 +202,17 @@ CREATE POLICY "audit_logs_deny_delete" ON audit_logs
 CREATE POLICY "audit_logs_deny_update" ON audit_logs
   FOR UPDATE USING (false);
 
+-- Form submissions table policies - system use only
+CREATE POLICY "form_submissions_insert_system" ON form_submissions
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "form_submissions_select_system" ON form_submissions
+  FOR SELECT USING (true);
+
+-- Email queue table policies - system use only
+CREATE POLICY "email_queue_system_access" ON email_queue
+  FOR ALL USING (true);
+
 
 
 -- =====================================================
@@ -193,6 +236,147 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Function to check rate limits for form submissions
+CREATE OR REPLACE FUNCTION check_rate_limit(p_ip_address INET, p_threshold INTEGER DEFAULT 5, p_hours INTEGER DEFAULT 1)
+RETURNS BOOLEAN AS $$
+DECLARE
+  submission_count INTEGER;
+BEGIN
+  -- Count submissions from this IP in the last hour
+  SELECT COUNT(*) INTO submission_count
+  FROM form_submissions
+  WHERE ip_address = p_ip_address
+    AND submitted_at > NOW() - INTERVAL '1 hour' * p_hours;
+  
+  -- Return true if under threshold, false if over
+  RETURN submission_count < p_threshold;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to record form submission
+CREATE OR REPLACE FUNCTION record_form_submission(p_ip_address INET)
+RETURNS UUID AS $$
+DECLARE
+  submission_id UUID;
+BEGIN
+  INSERT INTO form_submissions (ip_address)
+  VALUES (p_ip_address)
+  RETURNING id INTO submission_id;
+  
+  RETURN submission_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to add email to queue
+CREATE OR REPLACE FUNCTION add_email_to_queue(
+  p_recipient_email TEXT,
+  p_subject TEXT,
+  p_body TEXT,
+  p_email_type TEXT,
+  p_lead_id UUID DEFAULT NULL,
+  p_user_id UUID DEFAULT NULL,
+  p_priority INTEGER DEFAULT 1,
+  p_scheduled_at TIMESTAMPTZ DEFAULT NOW()
+)
+RETURNS UUID AS $$
+DECLARE
+  email_id UUID;
+BEGIN
+  INSERT INTO email_queue (
+    recipient_email,
+    subject,
+    body,
+    email_type,
+    lead_id,
+    user_id,
+    priority,
+    scheduled_at
+  ) VALUES (
+    p_recipient_email,
+    p_subject,
+    p_body,
+    p_email_type,
+    p_lead_id,
+    p_user_id,
+    p_priority,
+    p_scheduled_at
+  ) RETURNING id INTO email_id;
+  
+  RETURN email_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to get pending emails for processing (batch of 10)
+CREATE OR REPLACE FUNCTION get_pending_emails(p_batch_size INTEGER DEFAULT 10)
+RETURNS TABLE (
+  id UUID,
+  recipient_email TEXT,
+  subject TEXT,
+  body TEXT,
+  email_type TEXT,
+  lead_id UUID,
+  user_id UUID,
+  priority INTEGER
+) AS $$
+BEGIN
+  -- Mark emails as processing and return them
+  RETURN QUERY
+  UPDATE email_queue
+  SET 
+    status = 'processing',
+    attempts = attempts + 1,
+    last_attempt = NOW()
+  WHERE id IN (
+    SELECT eq.id
+    FROM email_queue eq
+    WHERE eq.status = 'pending'
+      AND eq.scheduled_at <= NOW()
+    ORDER BY eq.priority DESC, eq.created_at ASC
+    LIMIT p_batch_size
+  )
+  RETURNING 
+    email_queue.id,
+    email_queue.recipient_email,
+    email_queue.subject,
+    email_queue.body,
+    email_queue.email_type,
+    email_queue.lead_id,
+    email_queue.user_id,
+    email_queue.priority;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to mark email as sent
+CREATE OR REPLACE FUNCTION mark_email_sent(p_email_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  UPDATE email_queue
+  SET 
+    status = 'sent',
+    sent_at = NOW()
+  WHERE id = p_email_id;
+  
+  RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to mark email as failed
+CREATE OR REPLACE FUNCTION mark_email_failed(p_email_id UUID, p_error_message TEXT)
+RETURNS BOOLEAN AS $$
+BEGIN
+  UPDATE email_queue
+  SET 
+    status = CASE 
+      WHEN attempts >= 3 THEN 'failed'
+      ELSE 'pending'
+    END,
+    error_message = p_error_message
+  WHERE id = p_email_id;
+  
+  RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function to log audit events
 -- This function uses SECURITY DEFINER to bypass RLS for audit logging
@@ -500,6 +684,44 @@ SELECT
   phone
 FROM leads_hashed 
 LIMIT 3;
+
+-- Show form submissions table structure
+SELECT 
+  'Form Submissions Table Structure:' as info,
+  column_name,
+  data_type,
+  is_nullable
+FROM information_schema.columns 
+WHERE table_name = 'form_submissions'
+ORDER BY ordinal_position;
+
+-- Show rate limiting functions
+SELECT 
+  'Rate Limiting Functions:' as info,
+  routine_name,
+  routine_type
+FROM information_schema.routines 
+WHERE routine_name IN ('check_rate_limit', 'record_form_submission')
+ORDER BY routine_name;
+
+-- Show email queue table structure
+SELECT 
+  'Email Queue Table Structure:' as info,
+  column_name,
+  data_type,
+  is_nullable
+FROM information_schema.columns 
+WHERE table_name = 'email_queue'
+ORDER BY ordinal_position;
+
+-- Show email queue functions
+SELECT 
+  'Email Queue Functions:' as info,
+  routine_name,
+  routine_type
+FROM information_schema.routines 
+WHERE routine_name IN ('add_email_to_queue', 'get_pending_emails', 'mark_email_sent', 'mark_email_failed')
+ORDER BY routine_name;
 
 -- =====================================================
 -- 11. USEFUL QUERIES FOR TROUBLESHOOTING

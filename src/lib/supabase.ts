@@ -52,6 +52,43 @@ export interface AuditLog {
 
 export type AuditLogInsert = Omit<AuditLog, "id" | "event_time" | "created_at">;
 
+export interface FormSubmission {
+  id: string;
+  ip_address: string;
+  submitted_at: string;
+  created_at: string;
+}
+
+export interface RateLimitedFormData {
+  name: string;
+  email: string;
+  phone?: string;
+  source: string;
+  otherSource?: string;
+  interest: string;
+  note?: string;
+  consent_marketing: boolean;
+  consent_privacy: boolean;
+}
+
+export interface EmailQueueItem {
+  id: string;
+  recipient_email: string;
+  subject: string;
+  body: string;
+  email_type: string;
+  lead_id?: string;
+  user_id?: string;
+  priority: number;
+  status: 'pending' | 'processing' | 'sent' | 'failed';
+  attempts: number;
+  last_attempt?: string;
+  error_message?: string;
+  scheduled_at: string;
+  sent_at?: string;
+  created_at: string;
+}
+
 // Utility function to get leads data based on user role
 export const getLeadsData = async () => {
   try {
@@ -205,5 +242,65 @@ export const createFollowUpsForExistingLeads = async (userId: string) => {
     }
   } catch (error) {
     console.error("Error in createFollowUpsForExistingLeads:", error);
+  }
+};
+
+// Utility function to add email to queue
+export const addEmailToQueue = async (
+  recipientEmail: string,
+  subject: string,
+  body: string,
+  emailType: string,
+  leadId?: string,
+  userId?: string,
+  priority: number = 1,
+  scheduledAt?: Date
+) => {
+  try {
+    const { data, error } = await supabase.rpc('add_email_to_queue', {
+      p_recipient_email: recipientEmail,
+      p_subject: subject,
+      p_body: body,
+      p_email_type: emailType,
+      p_lead_id: leadId,
+      p_user_id: userId,
+      p_priority: priority,
+      p_scheduled_at: scheduledAt?.toISOString() || new Date().toISOString()
+    });
+
+    if (error) {
+      console.error('Error adding email to queue:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in addEmailToQueue:', error);
+    throw error;
+  }
+};
+
+// Utility function to process email queue
+export const processEmailQueue = async (batchSize: number = 10) => {
+  try {
+    const response = await fetch('/functions/v1/process-email-queue', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({ batchSize }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to process email queue');
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error processing email queue:', error);
+    throw error;
   }
 };
