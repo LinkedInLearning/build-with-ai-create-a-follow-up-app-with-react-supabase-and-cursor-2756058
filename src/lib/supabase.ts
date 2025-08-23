@@ -12,12 +12,12 @@ export interface Lead {
   created_at: string;
   name: string;
   email: string;
-  phone?: string;
+  phone?: string | null;
   email_hash?: string;
   phone_hash?: string;
   source: string;
   interest: string;
-  note?: string;
+  note?: string | null;
   assigned_to?: string;
   consent_marketing: boolean;
   consent_privacy: boolean;
@@ -80,7 +80,7 @@ export interface EmailQueueItem {
   lead_id?: string;
   user_id?: string;
   priority: number;
-  status: 'pending' | 'processing' | 'sent' | 'failed';
+  status: "pending" | "processing" | "sent" | "failed";
   attempts: number;
   last_attempt?: string;
   error_message?: string;
@@ -246,7 +246,7 @@ export const addEmailToQueue = async (
   scheduledAt?: Date
 ) => {
   try {
-    const { data, error } = await supabase.rpc('add_email_to_queue', {
+    const { data, error } = await supabase.rpc("add_email_to_queue", {
       p_recipient_email: recipientEmail,
       p_subject: subject,
       p_body: body,
@@ -254,17 +254,17 @@ export const addEmailToQueue = async (
       p_lead_id: leadId,
       p_user_id: userId,
       p_priority: priority,
-      p_scheduled_at: scheduledAt?.toISOString() || new Date().toISOString()
+      p_scheduled_at: scheduledAt?.toISOString() || new Date().toISOString(),
     });
 
     if (error) {
-      console.error('Error adding email to queue:', error);
+      console.error("Error adding email to queue:", error);
       throw error;
     }
 
     return data;
   } catch (error) {
-    console.error('Error in addEmailToQueue:', error);
+    console.error("Error in addEmailToQueue:", error);
     throw error;
   }
 };
@@ -272,11 +272,11 @@ export const addEmailToQueue = async (
 // Utility function to process email queue
 export const processEmailQueue = async (batchSize: number = 10) => {
   try {
-    const response = await fetch('/functions/v1/process-email-queue', {
-      method: 'POST',
+    const response = await fetch("/functions/v1/process-email-queue", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
       },
       body: JSON.stringify({ batchSize }),
     });
@@ -284,12 +284,12 @@ export const processEmailQueue = async (batchSize: number = 10) => {
     const result = await response.json();
 
     if (!response.ok) {
-      throw new Error(result.error || 'Failed to process email queue');
+      throw new Error(result.error || "Failed to process email queue");
     }
 
     return result;
   } catch (error) {
-    console.error('Error processing email queue:', error);
+    console.error("Error processing email queue:", error);
     throw error;
   }
 };

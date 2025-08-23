@@ -417,7 +417,7 @@ export const AdminAuditLogs: React.FC = () => {
                         {formatDate(log.event_time)}
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-900">
-                        {log.users?.email || "N/A"}
+                        {log.user_id || "N/A"}
                       </td>
                       <td className="py-3 px-4">
                         <Badge className={getRoleColor(log.role)}>
@@ -433,7 +433,7 @@ export const AdminAuditLogs: React.FC = () => {
                         {log.table_name}
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">
-                        {log.leads?.name || "N/A"}
+                        {log.lead_id || "N/A"}
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">
                         {log.ip_address || "N/A"}

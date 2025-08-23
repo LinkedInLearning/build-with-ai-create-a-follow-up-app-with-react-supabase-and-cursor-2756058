@@ -137,18 +137,18 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     }
   };
 
-  const getCurrentForm = () => {
-    switch (currentStep) {
-      case 1:
-        return step1Form;
-      case 2:
-        return step2Form;
-      case 3:
-        return step3Form;
-      default:
-        return step1Form;
-    }
-  };
+  // const getCurrentForm = () => {
+  //   switch (currentStep) {
+  //     case 1:
+  //       return step1Form;
+  //     case 2:
+  //       return step2Form;
+  //     case 3:
+  //       return step3Form;
+  //     default:
+  //       return step1Form;
+  //   }
+  // };
 
   const getCurrentValidation = () => {
     switch (currentStep) {
@@ -164,17 +164,15 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   };
 
   const handleNext = () => {
-    const currentForm = getCurrentForm();
-
     switch (currentStep) {
       case 1:
-        currentForm.handleSubmit(handleStep1Submit)();
+        step1Form.handleSubmit(handleStep1Submit)();
         break;
       case 2:
-        currentForm.handleSubmit(handleStep2Submit)();
+        step2Form.handleSubmit(handleStep2Submit)();
         break;
       case 3:
-        currentForm.handleSubmit(handleStep3Submit)();
+        step3Form.handleSubmit(handleStep3Submit)();
         break;
     }
   };

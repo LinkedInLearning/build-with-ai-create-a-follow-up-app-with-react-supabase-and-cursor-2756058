@@ -44,7 +44,10 @@ export const AdminSettings: React.FC = () => {
     }
   };
 
-  const handleInputChange = (field: keyof SettingsForm, value: any) => {
+  const handleInputChange = (
+    field: keyof SettingsForm,
+    value: string | number | boolean
+  ) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -55,19 +58,19 @@ export const AdminSettings: React.FC = () => {
       fields: [
         {
           label: "Site Name",
-          type: "text",
+          type: "text" as const,
           value: settings.siteName,
           onChange: (value: string) => handleInputChange("siteName", value),
         },
         {
           label: "Contact Email",
-          type: "email",
+          type: "email" as const,
           value: settings.contactEmail,
           onChange: (value: string) => handleInputChange("contactEmail", value),
         },
         {
           label: "Maximum Users",
-          type: "number",
+          type: "number" as const,
           value: settings.maxUsers,
           onChange: (value: number) => handleInputChange("maxUsers", value),
         },
@@ -79,20 +82,20 @@ export const AdminSettings: React.FC = () => {
       fields: [
         {
           label: "Enable Notifications",
-          type: "checkbox",
+          type: "checkbox" as const,
           value: settings.enableNotifications,
           onChange: (value: boolean) =>
             handleInputChange("enableNotifications", value),
         },
         {
           label: "Auto Backup",
-          type: "checkbox",
+          type: "checkbox" as const,
           value: settings.autoBackup,
           onChange: (value: boolean) => handleInputChange("autoBackup", value),
         },
         {
           label: "Maintenance Mode",
-          type: "checkbox",
+          type: "checkbox" as const,
           value: settings.maintenanceMode,
           onChange: (value: boolean) =>
             handleInputChange("maintenanceMode", value),
@@ -154,14 +157,14 @@ export const AdminSettings: React.FC = () => {
                     {field.type === "checkbox" ? (
                       <input
                         type="checkbox"
-                        checked={field.value}
+                        checked={field.value as boolean}
                         onChange={(e) => field.onChange(e.target.checked)}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
                     ) : field.type === "number" ? (
                       <input
                         type="number"
-                        value={field.value}
+                        value={field.value as number}
                         onChange={(e) =>
                           field.onChange(parseInt(e.target.value) || 0)
                         }
@@ -170,7 +173,7 @@ export const AdminSettings: React.FC = () => {
                     ) : (
                       <input
                         type={field.type}
-                        value={field.value}
+                        value={field.value as string}
                         onChange={(e) => field.onChange(e.target.value)}
                         className="w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />

@@ -5,33 +5,41 @@ import { useNavigate } from "react-router-dom";
 
 export const AdminOverview: React.FC = () => {
   const navigate = useNavigate();
-  const [stats, setStats] = useState([
+  const [stats, setStats] = useState<
+    Array<{
+      name: string;
+      value: string;
+      change: string;
+      changeType: "positive" | "negative" | "neutral";
+      icon: React.ComponentType<{ className?: string }>;
+    }>
+  >([
     {
       name: "Total Users",
       value: "0",
       change: "0%",
-      changeType: "neutral" as const,
+      changeType: "neutral",
       icon: Users,
     },
     {
       name: "Total Leads",
       value: "0",
       change: "0%",
-      changeType: "neutral" as const,
+      changeType: "neutral",
       icon: BarChart3,
     },
     {
       name: "Conversion Rate",
       value: "0%",
       change: "0%",
-      changeType: "neutral" as const,
+      changeType: "neutral",
       icon: TrendingUp,
     },
     {
       name: "Active Sessions",
       value: "0",
       change: "0%",
-      changeType: "neutral" as const,
+      changeType: "neutral",
       icon: Activity,
     },
   ]);
