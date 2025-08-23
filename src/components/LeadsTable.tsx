@@ -11,7 +11,24 @@ import {
   ChevronRight,
   User,
   UserCheck,
+  Filter,
+  X,
+  Send,
+  Edit,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 type SortField =
   | "name"
@@ -42,6 +59,31 @@ export const LeadsTable: React.FC = () => {
   const [subAdmins, setSubAdmins] = useState<any[]>([]);
   const [assigningLead, setAssigningLead] = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  // New filter states
+  const [sourceFilter, setSourceFilter] = useState<string>("All");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Follow-up states
+  const [selectedTemplates, setSelectedTemplates] = useState<{
+    [key: string]: string;
+  }>({});
+  const [sendingFollowUp, setSendingFollowUp] = useState<string | null>(null);
+
+  // Edit states
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    source: "",
+    interest: "",
+    note: "",
+  });
+  const [isEditing, setIsEditing] = useState(false);
+
   const rowsPerPage = 10;
 
   // Fetch leads from Supabase
@@ -246,18 +288,42 @@ export const LeadsTable: React.FC = () => {
     }
   };
 
-  // Filter and sort leads based on search term and sort configuration
+  // Filter and sort leads based on search term, filters, and sort configuration
   const filteredAndSortedLeads = React.useMemo(() => {
     let filtered = leads;
 
     // Apply search filter
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = leads.filter(
+      filtered = filtered.filter(
         (lead) =>
           lead.name.toLowerCase().includes(searchLower) ||
           lead.email.toLowerCase().includes(searchLower)
       );
+    }
+
+    // Apply source filter
+    if (sourceFilter !== "All") {
+      filtered = filtered.filter((lead) => lead.source === sourceFilter);
+    }
+
+    // Apply date range filter
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      filtered = filtered.filter((lead) => {
+        const leadDate = new Date(lead.created_at);
+        return leadDate >= fromDate;
+      });
+    }
+
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter((lead) => {
+        const leadDate = new Date(lead.created_at);
+        return leadDate <= toDate;
+      });
     }
 
     // Apply sorting
@@ -281,7 +347,7 @@ export const LeadsTable: React.FC = () => {
         return bString.localeCompare(aString);
       }
     });
-  }, [leads, searchTerm, sortConfig]);
+  }, [leads, searchTerm, sourceFilter, dateFrom, dateTo, sortConfig]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredAndSortedLeads.length / rowsPerPage);
@@ -289,10 +355,145 @@ export const LeadsTable: React.FC = () => {
   const endIndex = startIndex + rowsPerPage;
   const currentLeads = filteredAndSortedLeads.slice(startIndex, endIndex);
 
-  // Reset to first page when search term changes
+  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, sourceFilter, dateFrom, dateTo]);
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSourceFilter("All");
+    setDateFrom("");
+    setDateTo("");
+    setSearchTerm("");
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters =
+    sourceFilter !== "All" || dateFrom || dateTo || searchTerm.trim();
+
+  // Function to submit follow-up
+  const submitFollowUp = async (leadId: string, template: string) => {
+    if (!template) {
+      toast({
+        title: "Error",
+        description: "Please select a template before sending.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSendingFollowUp(leadId);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("sendFollowUp", {
+        body: { leadId, template },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Success",
+        description: `Follow-up email sent successfully using ${template} template.`,
+      });
+
+      // Clear the selected template for this lead
+      setSelectedTemplates((prev) => {
+        const updated = { ...prev };
+        delete updated[leadId];
+        return updated;
+      });
+    } catch (error) {
+      console.error("Error sending follow-up:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send follow-up email. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingFollowUp(null);
+    }
+  };
+
+  // Function to open edit modal
+  const openEditModal = (lead: Lead) => {
+    setEditingLead(lead);
+    setEditForm({
+      name: lead.name,
+      email: lead.email,
+      phone: lead.phone || "",
+      source: lead.source,
+      interest: lead.interest,
+      note: lead.note || "",
+    });
+  };
+
+  // Function to save edited lead
+  const saveEditedLead = async () => {
+    if (!editingLead) return;
+
+    setIsEditing(true);
+
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .update({
+          name: editForm.name,
+          email: editForm.email,
+          phone: editForm.phone || null,
+          source: editForm.source,
+          interest: editForm.interest,
+          note: editForm.note || null,
+        })
+        .eq("id", editingLead.id);
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state
+      setLeads((prevLeads) =>
+        prevLeads.map((lead) =>
+          lead.id === editingLead.id
+            ? {
+                ...lead,
+                name: editForm.name,
+                email: editForm.email,
+                phone: editForm.phone || null,
+                source: editForm.source,
+                interest: editForm.interest,
+                note: editForm.note || null,
+              }
+            : lead
+        )
+      );
+
+      // Log audit event
+      await logAuditEvent("update", "leads", editingLead.id, {
+        action: "lead_edited",
+        previous_data: editingLead,
+        new_data: editForm,
+      });
+
+      toast({
+        title: "Success",
+        description: "Lead information updated successfully.",
+      });
+
+      setEditingLead(null);
+    } catch (error) {
+      console.error("Error updating lead:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update lead information. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEditing(false);
+    }
+  };
 
   // Handle column header click for sorting
   const handleSort = (field: SortField) => {
@@ -416,43 +617,157 @@ export const LeadsTable: React.FC = () => {
             <h2 className="text-xl font-semibold text-gray-900">
               Leads ({leads.length})
             </h2>
-            {searchTerm.trim() && (
+            {hasActiveFilters && (
               <p className="text-sm text-gray-600 mt-1">
                 Showing {filteredAndSortedLeads.length} of {leads.length} leads
               </p>
             )}
           </div>
-          {!isSuperAdmin && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-full">
-              <div className="w-2 h-2 bg-yellow-600 rounded-full"></div>
-              <span className="text-sm font-medium">Data Privacy Mode</span>
+          <div className="flex items-center gap-2">
+            {!isSuperAdmin && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-full">
+                <div className="w-2 h-2 bg-yellow-600 rounded-full"></div>
+                <span className="text-sm font-medium">Data Privacy Mode</span>
+              </div>
+            )}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                showFilters
+                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+              {hasActiveFilters && (
+                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-blue-600 rounded-full">
+                  {[
+                    sourceFilter !== "All" ? 1 : 0,
+                    dateFrom ? 1 : 0,
+                    dateTo ? 1 : 0,
+                    searchTerm.trim() ? 1 : 0,
+                  ].reduce((a, b) => a + b, 0)}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Controls */}
+      {showFilters && (
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Search Bar */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
+            </div>
+
+            {/* Source Filter */}
+            <div>
+              <label
+                htmlFor="source-filter"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Source
+              </label>
+              <select
+                id="source-filter"
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              >
+                <option value="All">All Sources</option>
+                <option value="Google">Google</option>
+                <option value="Referral">Referral</option>
+                <option value="Others">Others</option>
+              </select>
+            </div>
+
+            {/* Date From */}
+            <div>
+              <label
+                htmlFor="date-from"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                From Date
+              </label>
+              <input
+                type="date"
+                id="date-from"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
+            </div>
+
+            {/* Date To */}
+            <div>
+              <label
+                htmlFor="date-to"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                To Date
+              </label>
+              <input
+                type="date"
+                id="date-to"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Clear Filters Button */}
+          {hasActiveFilters && (
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <X className="h-4 w-4" />
+                Clear Filters
+              </button>
             </div>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Search Bar */}
-      <div className="px-6 py-4 border-b border-gray-200">
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
+      {/* Search Bar (when filters are hidden) */}
+      {!showFilters && (
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
           </div>
-          <input
-            type="text"
-            placeholder="Search by name or email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-          />
         </div>
-      </div>
+      )}
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="overflow-x-auto w-full">
+        <table className="w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors min-w-[120px] max-w-[200px]"
                 onClick={() => handleSort("name")}
               >
                 <div className="flex items-center space-x-1">
@@ -461,7 +776,7 @@ export const LeadsTable: React.FC = () => {
                 </div>
               </th>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors min-w-[180px] max-w-[250px]"
                 onClick={() => handleSort("email")}
               >
                 <div className="flex items-center space-x-1">
@@ -470,7 +785,7 @@ export const LeadsTable: React.FC = () => {
                 </div>
               </th>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors min-w-[120px] max-w-[150px]"
                 onClick={() => handleSort("phone")}
               >
                 <div className="flex items-center space-x-1">
@@ -479,7 +794,7 @@ export const LeadsTable: React.FC = () => {
                 </div>
               </th>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors min-w-[100px] max-w-[120px]"
                 onClick={() => handleSort("source")}
               >
                 <div className="flex items-center space-x-1">
@@ -488,7 +803,7 @@ export const LeadsTable: React.FC = () => {
                 </div>
               </th>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors min-w-[120px] max-w-[200px]"
                 onClick={() => handleSort("interest")}
               >
                 <div className="flex items-center space-x-1">
@@ -497,7 +812,7 @@ export const LeadsTable: React.FC = () => {
                 </div>
               </th>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors min-w-[140px] max-w-[180px]"
                 onClick={() => handleSort("created_at")}
               >
                 <div className="flex items-center space-x-1">
@@ -506,31 +821,38 @@ export const LeadsTable: React.FC = () => {
                 </div>
               </th>
               {userRole === "super_admin" && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px] max-w-[200px]">
                   Assignment
                 </th>
               )}
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[280px] max-w-[350px]">
+                Action
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {currentLeads.map((lead) => (
               <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {lead.name}
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 min-w-[120px] max-w-[200px]">
+                  <div className="truncate" title={lead.name}>
+                    {lead.name}
+                  </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 min-w-[180px] max-w-[250px]">
                   <a
                     href={`mailto:${lead.email}`}
-                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                    className="text-blue-600 hover:text-blue-800 hover:underline truncate block"
+                    title={lead.email}
                   >
                     {lead.email}
                   </a>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 min-w-[120px] max-w-[150px]">
                   {lead.phone ? (
                     <a
                       href={`tel:${lead.phone}`}
-                      className="text-blue-600 hover:text-blue-800 hover:underline"
+                      className="text-blue-600 hover:text-blue-800 hover:underline truncate block"
+                      title={lead.phone}
                     >
                       {lead.phone}
                     </a>
@@ -538,21 +860,21 @@ export const LeadsTable: React.FC = () => {
                     <span className="text-gray-400">—</span>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 min-w-[100px] max-w-[120px]">
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                     {lead.source}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                <td className="px-6 py-4 text-sm text-gray-500 min-w-[120px] max-w-[200px]">
                   <div className="truncate" title={lead.interest}>
                     {lead.interest}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 min-w-[140px] max-w-[180px]">
                   {formatDate(lead.created_at)}
                 </td>
                 {userRole === "super_admin" && (
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 min-w-[140px] max-w-[200px]">
                     {lead.assigned_to ? (
                       <div className="flex items-center gap-2">
                         <UserCheck className="h-4 w-4 text-green-500" />
@@ -582,6 +904,55 @@ export const LeadsTable: React.FC = () => {
                     )}
                   </td>
                 )}
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 min-w-[280px] max-w-[350px]">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <select
+                      value={selectedTemplates[lead.id] || ""}
+                      onChange={(e) =>
+                        setSelectedTemplates((prev) => ({
+                          ...prev,
+                          [lead.id]: e.target.value,
+                        }))
+                      }
+                      className="text-sm border border-gray-300 rounded px-2 py-1 min-w-[120px]"
+                      disabled={sendingFollowUp === lead.id}
+                    >
+                      <option value="">Select template...</option>
+                      <option value="welcome">Welcome</option>
+                      <option value="check-in">Check-In</option>
+                      <option value="reminder">Reminder</option>
+                      <option value="update">Update</option>
+                    </select>
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        submitFollowUp(
+                          lead.id,
+                          selectedTemplates[lead.id] || ""
+                        )
+                      }
+                      disabled={
+                        !selectedTemplates[lead.id] ||
+                        sendingFollowUp === lead.id
+                      }
+                      className="flex items-center gap-1"
+                    >
+                      <Send className="h-3 w-3" />
+                      {sendingFollowUp === lead.id ? "Sending..." : "Send"}
+                    </Button>
+                    {isSuperAdmin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEditModal(lead)}
+                        className="flex items-center gap-1"
+                      >
+                        <Edit className="h-3 w-3" />
+                        Edit
+                      </Button>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -642,6 +1013,111 @@ export const LeadsTable: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Edit Lead Modal */}
+      <Dialog open={!!editingLead} onOpenChange={() => setEditingLead(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Lead Information</DialogTitle>
+            <DialogDescription>
+              Update the contact information for this lead. Click save when
+              you're done.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Name *</Label>
+                <Input
+                  id="edit-name"
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  placeholder="Enter name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email *</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, email: e.target.value }))
+                  }
+                  placeholder="Enter email"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Phone</Label>
+                <Input
+                  id="edit-phone"
+                  type="tel"
+                  value={editForm.phone}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, phone: e.target.value }))
+                  }
+                  placeholder="Enter phone number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-source">Source *</Label>
+                <select
+                  id="edit-source"
+                  value={editForm.source}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, source: e.target.value }))
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">Select source...</option>
+                  <option value="Google">Google</option>
+                  <option value="Referral">Referral</option>
+                  <option value="Others">Others</option>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-interest">Interest *</Label>
+              <Input
+                id="edit-interest"
+                value={editForm.interest}
+                onChange={(e) =>
+                  setEditForm((prev) => ({ ...prev, interest: e.target.value }))
+                }
+                placeholder="Enter interest"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-note">Note</Label>
+              <Textarea
+                id="edit-note"
+                value={editForm.note}
+                onChange={(e) =>
+                  setEditForm((prev) => ({ ...prev, note: e.target.value }))
+                }
+                placeholder="Enter additional notes"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditingLead(null)}
+              disabled={isEditing}
+            >
+              Cancel
+            </Button>
+            <Button onClick={saveEditedLead} disabled={isEditing}>
+              {isEditing ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
