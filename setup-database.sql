@@ -5,7 +5,14 @@
 -- Run this file in your Supabase SQL editor to set up the complete system
 
 -- =====================================================
--- 1. CREATE TABLES
+-- 1. CREATE EXTENSIONS
+-- =====================================================
+
+-- Enable pgcrypto for hashing functions
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- =====================================================
+-- 2. CREATE TABLES
 -- =====================================================
 
 -- Create roles table
@@ -82,6 +89,9 @@ ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE followups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
+-- Enable RLS on the hashed view
+ALTER VIEW leads_hashed SET (security_invoker = true);
+
 
 -- =====================================================
 -- 4. CREATE RLS POLICIES
@@ -92,6 +102,8 @@ DROP POLICY IF EXISTS "users_view_own_record" ON users;
 DROP POLICY IF EXISTS "authenticated_view_roles" ON roles;
 DROP POLICY IF EXISTS "authenticated_access_users" ON users;
 DROP POLICY IF EXISTS "authenticated_access_leads" ON leads;
+DROP POLICY IF EXISTS "super_admin_leads_full_access" ON leads;
+DROP POLICY IF EXISTS "sub_admin_leads_hashed_access" ON leads;
 DROP POLICY IF EXISTS "authenticated_access_followups" ON followups;
 DROP POLICY IF EXISTS "super_admin_audit_logs_access" ON audit_logs;
 DROP POLICY IF EXISTS "super_admin_audit_logs_select" ON audit_logs;
@@ -111,9 +123,26 @@ CREATE POLICY "authenticated_access_users" ON users
 CREATE POLICY "authenticated_view_roles" ON roles
   FOR SELECT USING (auth.role() = 'authenticated');
 
--- Leads table policies
-CREATE POLICY "authenticated_access_leads" ON leads
-  FOR ALL USING (auth.role() = 'authenticated');
+-- Leads table policies - role-based data visibility
+-- Super admin can see all data (raw email/phone)
+CREATE POLICY "super_admin_leads_full_access" ON leads
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM users u
+      JOIN roles r ON u.role_id = r.id
+      WHERE u.user_id = auth.uid() AND r.name = 'super_admin'
+    )
+  );
+
+-- Sub admin can see leads but with hashed sensitive data
+CREATE POLICY "sub_admin_leads_hashed_access" ON leads
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM users u
+      JOIN roles r ON u.role_id = r.id
+      WHERE u.user_id = auth.uid() AND r.name = 'sub_admin'
+    )
+  );
 
 -- Followups table policies
 CREATE POLICY "authenticated_access_followups" ON followups
@@ -146,6 +175,24 @@ CREATE POLICY "audit_logs_deny_update" ON audit_logs
 -- =====================================================
 -- 5. CREATE FUNCTIONS
 -- =====================================================
+
+-- Function to automatically hash email and phone for leads
+CREATE OR REPLACE FUNCTION hash_lead_data()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Hash email if provided
+  IF NEW.email IS NOT NULL THEN
+    NEW.email_hash := encode(digest(NEW.email, 'sha256'), 'hex');
+  END IF;
+  
+  -- Hash phone if provided
+  IF NEW.phone IS NOT NULL THEN
+    NEW.phone_hash := encode(digest(NEW.phone, 'sha256'), 'hex');
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Function to log audit events
 -- This function uses SECURITY DEFINER to bypass RLS for audit logging
@@ -244,16 +291,78 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =====================================================
--- 7. CREATE TRIGGER
+-- 7. CREATE TRIGGERS
 -- =====================================================
 
--- Drop existing trigger if it exists
+-- Drop existing triggers if they exist
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP TRIGGER IF EXISTS hash_lead_data_trigger ON leads;
 
 -- Create trigger to automatically handle new users
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- Ensure hash columns exist in leads table BEFORE creating triggers and views
+DO $$
+BEGIN
+  -- Add email_hash column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'leads' AND column_name = 'email_hash'
+  ) THEN
+    ALTER TABLE leads ADD COLUMN email_hash TEXT;
+    RAISE NOTICE 'Added email_hash column to leads table';
+  END IF;
+  
+  -- Add phone_hash column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'leads' AND column_name = 'phone_hash'
+  ) THEN
+    ALTER TABLE leads ADD COLUMN phone_hash TEXT;
+    RAISE NOTICE 'Added phone_hash column to leads table';
+  END IF;
+END $$;
+
+-- Verify hash columns were added successfully
+SELECT 
+  'Hash Columns Status:' as info,
+  column_name,
+  data_type,
+  is_nullable
+FROM information_schema.columns 
+WHERE table_name = 'leads' AND column_name IN ('email_hash', 'phone_hash')
+ORDER BY column_name;
+
+-- Create trigger to automatically hash lead data
+CREATE TRIGGER hash_lead_data_trigger
+  BEFORE INSERT OR UPDATE ON leads
+  FOR EACH ROW EXECUTE FUNCTION hash_lead_data();
+
+-- Create view for sub-admins with hashed sensitive data
+CREATE OR REPLACE VIEW leads_hashed AS
+SELECT 
+  id,
+  created_at,
+  name,
+  CASE 
+    WHEN email_hash IS NOT NULL AND email IS NOT NULL THEN 
+      CONCAT(LEFT(email, 2), '***', SUBSTRING(email FROM POSITION('@' IN email)))
+    ELSE email 
+  END as email,
+  CASE 
+    WHEN phone_hash IS NOT NULL AND phone IS NOT NULL AND LENGTH(phone) >= 7 THEN 
+      CONCAT(LEFT(phone, 3), '***', RIGHT(phone, 4))
+    ELSE phone 
+  END as phone,
+  email_hash,
+  phone_hash,
+  source,
+  interest,
+  note,
+  assigned_to
+FROM leads;
 
 -- =====================================================
 -- 8. FIX EXISTING USERS (if any)
@@ -266,7 +375,24 @@ WHERE role_id IS NULL
    OR role_id NOT IN (SELECT id FROM roles);
 
 -- =====================================================
--- 9. VERIFICATION QUERIES
+-- 9. POPULATE EXISTING LEADS WITH HASHED VALUES
+-- =====================================================
+
+-- Update existing leads to populate hash columns
+UPDATE leads 
+SET 
+  email_hash = CASE 
+    WHEN email IS NOT NULL THEN encode(digest(email, 'sha256'), 'hex')
+    ELSE NULL 
+  END,
+  phone_hash = CASE 
+    WHEN phone IS NOT NULL THEN encode(digest(phone, 'sha256'), 'hex')
+    ELSE NULL 
+  END
+WHERE email_hash IS NULL OR phone_hash IS NULL;
+
+-- =====================================================
+-- 10. VERIFICATION QUERIES
 -- =====================================================
 
 -- Show current setup status
@@ -321,8 +447,62 @@ SELECT
 FROM pg_policies 
 WHERE tablename = 'audit_logs';
 
+-- Show leads table structure with hash columns
+SELECT 
+  'Leads Table Structure with Hash Columns:' as info,
+  column_name,
+  data_type,
+  is_nullable
+FROM information_schema.columns 
+WHERE table_name = 'leads'
+ORDER BY ordinal_position;
+
+-- Show hash function
+SELECT 
+  'Hash Function:' as info,
+  routine_name,
+  routine_type
+FROM information_schema.routines 
+WHERE routine_name = 'hash_lead_data';
+
+-- Show leads RLS policies
+SELECT 
+  'Leads RLS Policies:' as info,
+  policyname,
+  permissive,
+  roles,
+  cmd,
+  qual
+FROM pg_policies 
+WHERE tablename = 'leads';
+
+-- Verify leads_hashed view exists
+SELECT 
+  'Leads Hashed View:' as info,
+  schemaname,
+  viewname,
+  CASE WHEN viewname IS NOT NULL THEN 'View created successfully' ELSE 'View not found' END as status
+FROM pg_views 
+WHERE viewname = 'leads_hashed';
+
+-- Test the view with a sample query
+SELECT 
+  'View Test:' as info,
+  COUNT(*) as total_records
+FROM leads_hashed;
+
+-- Show sample data from the view (first 3 records)
+SELECT 
+  'Sample View Data:' as info,
+  id,
+  name,
+  email,
+  phone
+FROM leads_hashed 
+LIMIT 3;
+
 -- =====================================================
--- 10. USEFUL QUERIES FOR TROUBLESHOOTING
+-- 11. USEFUL QUERIES FOR TROUBLESHOOTING
 -- =====================================================
 
 -- Check if trigger exists

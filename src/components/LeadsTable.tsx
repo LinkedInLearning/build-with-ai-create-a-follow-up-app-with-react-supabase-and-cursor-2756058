@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { supabase, logAuditEvent } from "@/lib/supabase";
+import { supabase, logAuditEvent, getLeadsData } from "@/lib/supabase";
 import type { Lead, FollowUpInsert } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -41,6 +41,7 @@ export const LeadsTable: React.FC = () => {
   const [userRole, setUserRole] = useState<string>("");
   const [subAdmins, setSubAdmins] = useState<any[]>([]);
   const [assigningLead, setAssigningLead] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const rowsPerPage = 10;
 
   // Fetch leads from Supabase
@@ -88,6 +89,7 @@ export const LeadsTable: React.FC = () => {
           sessionUserId: session.user.id,
         });
         setUserRole(userRole);
+        setIsSuperAdmin(userRole === "super_admin");
 
         // If super admin, fetch sub-admins for assignment
         if (userRole === "super_admin") {
@@ -116,18 +118,22 @@ export const LeadsTable: React.FC = () => {
           }
         }
 
-        let query = supabase.from("leads").select("*");
+        // Use the new utility function to get role-appropriate data
+        const { data, error } = await getLeadsData();
+
+        if (error) {
+          throw error;
+        }
 
         // Filter leads based on user role
+        let filteredData = data || [];
         if (userRole === "sub_admin") {
           // Sub-admin can only see leads assigned to them
-          query = query.eq("assigned_to", userId);
+          filteredData = filteredData.filter(
+            (lead) => lead.assigned_to === userId
+          );
         }
         // Super admin can see all leads (no filter needed)
-
-        const { data, error } = await query.order("created_at", {
-          ascending: false,
-        });
 
         if (error) {
           if (error.message === "Supabase not configured") {
@@ -139,8 +145,8 @@ export const LeadsTable: React.FC = () => {
           throw error;
         }
 
-        console.log("Fetched leads:", data);
-        setLeads(data || []);
+        console.log("Fetched leads:", filteredData);
+        setLeads(filteredData);
       } catch (err) {
         console.error("Error fetching leads:", err);
         setError(err instanceof Error ? err.message : "Failed to fetch leads");
@@ -405,14 +411,24 @@ export const LeadsTable: React.FC = () => {
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-900">
-          Leads ({leads.length})
-        </h2>
-        {searchTerm.trim() && (
-          <p className="text-sm text-gray-600 mt-1">
-            Showing {filteredAndSortedLeads.length} of {leads.length} leads
-          </p>
-        )}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              Leads ({leads.length})
+            </h2>
+            {searchTerm.trim() && (
+              <p className="text-sm text-gray-600 mt-1">
+                Showing {filteredAndSortedLeads.length} of {leads.length} leads
+              </p>
+            )}
+          </div>
+          {!isSuperAdmin && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-full">
+              <div className="w-2 h-2 bg-yellow-600 rounded-full"></div>
+              <span className="text-sm font-medium">Data Privacy Mode</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Search Bar */}

@@ -13,6 +13,8 @@ export interface Lead {
   name: string;
   email: string;
   phone?: string;
+  email_hash?: string;
+  phone_hash?: string;
   source: string;
   interest: string;
   note?: string;
@@ -50,6 +52,45 @@ export interface AuditLog {
 
 export type AuditLogInsert = Omit<AuditLog, "id" | "event_time" | "created_at">;
 
+// Utility function to get leads data based on user role
+export const getLeadsData = async () => {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: null };
+
+    // Get user role
+    const { data: userData } = await supabase
+      .from("users")
+      .select(
+        `
+        id,
+        roles!inner(name)
+      `
+      )
+      .eq("user_id", user.id)
+      .single();
+
+    if (!userData) return { data: null, error: null };
+
+    const userRole = userData.roles.name;
+
+    // Super admin gets full data, sub admin gets hashed data
+    const tableName = userRole === "super_admin" ? "leads" : "leads_hashed";
+
+    const { data, error } = await supabase
+      .from(tableName)
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    return { data, error };
+  } catch (error) {
+    console.error("Error in getLeadsData:", error);
+    return { data: null, error };
+  }
+};
+
 // Utility function to log audit events
 export const logAuditEvent = async (
   action: string,
@@ -58,17 +99,21 @@ export const logAuditEvent = async (
   additionalData?: Record<string, any>
 ) => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
 
     // Get user details and role
     const { data: userData } = await supabase
-      .from('users')
-      .select(`
+      .from("users")
+      .select(
+        `
         id,
         roles!inner(name)
-      `)
-      .eq('user_id', user.id)
+      `
+      )
+      .eq("user_id", user.id)
       .single();
 
     if (!userData) return;
@@ -83,20 +128,20 @@ export const logAuditEvent = async (
     };
 
     // Call the database function to log the audit event
-    const { error } = await supabase.rpc('log_audit_event', {
+    const { error } = await supabase.rpc("log_audit_event", {
       p_user_id: userData.id,
       p_role: userData.roles.name,
       p_action: action,
       p_table_name: tableName,
       p_lead_id: leadId,
-      p_additional_data: additionalData
+      p_additional_data: additionalData,
     });
 
     if (error) {
-      console.error('Error logging audit event:', error);
+      console.error("Error logging audit event:", error);
     }
   } catch (error) {
-    console.error('Error in logAuditEvent:', error);
+    console.error("Error in logAuditEvent:", error);
   }
 };
 
