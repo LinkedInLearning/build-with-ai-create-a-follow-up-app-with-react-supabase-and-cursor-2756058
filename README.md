@@ -1,7 +1,11 @@
-# COURSENAME
-This is the repository for the LinkedIn Learning course `course-name`. The full course is available from [LinkedIn Learning][lil-course-url].
+# Build with AI: Create a Follow-Up App with React, Supabase, and Cursor
+This is the repository for the LinkedIn Learning course `Build with AI: Create a Follow-Up App with React, Supabase, and Cursor`. The full course is available from [LinkedIn Learning][lil-course-url].
 
 ![course-name-alt-text][lil-thumbnail-url] 
+
+## Course Description
+
+Learn how to build a follow-up application using React, Supabase, and the Cursor AI coding assistant. Developer advocate Ayodele Aransiola begins by modeling a multi-role schema in Supabase and enforcing row-level security policies for users, sub-admins, and super-admins. Next, Ayodele demonstrates how to leverage AI suggestions in Cursor to create and refine React components. Then, discover how to implement a GDPR-style, multi-step form that captures user consent and writes immutable, hashed audit logs. Finally, discover how to deploy your app to production. Upon finishing this course, you’ll have a production-ready application that balances developer productivity with data privacy and compliance.
 
 _See the readme file in the main branch for updated instructions and information._
 ## Instructions
@@ -22,14 +26,14 @@ To resolve this issue:
     Add changes to git using this command: git add .
 	Commit changes using this command: git commit -m "some message"
 
-## Installing
-1. To use these exercise files, you must have the following installed:
-	- [list of requirements for course]
-2. Clone this repository into your local machine using the terminal (Mac), CMD (Windows), or a GUI tool like SourceTree.
-3. [Course-specific instructions]
+## Instructor
+
+Ayodele Aransiola
+
+Software Engineer
 
 
 [0]: # (Replace these placeholder URLs with actual course URLs)
 
-[lil-course-url]: https://www.linkedin.com/learning/
-[lil-thumbnail-url]: https://media.licdn.com/dms/image/v2/D4E0DAQG0eDHsyOSqTA/learning-public-crop_675_1200/B4EZVdqqdwHUAY-/0/1741033220778?e=2147483647&v=beta&t=FxUDo6FA8W8CiFROwqfZKL_mzQhYx9loYLfjN-LNjgA
+[lil-course-url]: https://www.linkedin.com/learning/build-with-ai-create-a-follow-up-app-with-react-supabase-and-cursor
+[lil-thumbnail-url]: https://media.licdn.com/dms/image/v2/D4E0DAQHHWdEAyVRSKg/learning-public-crop_675_1200/B4EZpgdzWvIoAY-/0/1762555017463?e=2147483647&v=beta&t=fa1VoUm-E3pkg31TGdIhiIU8fSTLWD_lBU3KprCqqW4
